@@ -6,7 +6,8 @@
   "description": "Unattended end-to-end scenario runner on anvil forks and live testnets",
   "scripts": {
     "e2e": "tsx src/run.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "fork:up": "tsx src/fork-up.ts"
   },
   "dependencies": {
     "@exeunt/sdk": "*",

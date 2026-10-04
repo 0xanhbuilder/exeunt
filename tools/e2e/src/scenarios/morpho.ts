@@ -19,7 +19,7 @@ async function approveAs(kit: KitContext, from: Address, token: Address, spender
 }
 
 /** Withdraws as much as each holder can until normal withdrawals stop working. */
-async function bankRun(sdk: ExeuntClient, kit: KitContext, holders: Address[]): Promise<{ withdrawn: bigint; holders: number }> {
+export async function bankRun(sdk: ExeuntClient, kit: KitContext, holders: Address[]): Promise<{ withdrawn: bigint; holders: number }> {
   const vault = sdk.deployment.earnVault as Address;
   let withdrawn = 0n;
   let count = 0;

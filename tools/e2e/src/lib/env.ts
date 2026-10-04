@@ -62,8 +62,11 @@ export function toolEnv(): NodeJS.ProcessEnv {
   return { ...process.env, PATH: `${foundryBin}${sep}${process.env.PATH ?? ""}` };
 }
 
+/** Robinhood Chain's public RPC sits behind Cloudflare, which challenges non-browser user agents under load. */
+export const FORK_HEADERS = ["--fork-header", "User-Agent: Mozilla/5.0 (exeunt-e2e)"];
+
 export function startAnvil(spec: ForkSpec, log: (l: string) => void): ChildProcess {
-  const args = ["--fork-url", spec.forkUrl, "--port", String(spec.port), "--silent", "--gas-limit", "100000000"];
+  const args = ["--fork-url", spec.forkUrl, "--port", String(spec.port), "--silent", "--gas-limit", "100000000", ...FORK_HEADERS];
   if (spec.forkBlock) args.push("--fork-block-number", String(spec.forkBlock));
   log(`  starting anvil on :${spec.port}${spec.forkBlock ? ` at block ${spec.forkBlock}` : ""}`);
   return spawn("anvil", args, { env: toolEnv(), stdio: "ignore" });
