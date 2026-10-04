@@ -50,6 +50,7 @@ contract Deploy is Script, MorphoStack {
         deployer = vm.addr(pk);
         vm.serializeString(out, "network", network);
         vm.serializeUint(out, "chainId", block.chainid);
+        // On Arbitrum block.number is the L1 block; run script/fix-deploy-block.mjs after broadcasting.
         vm.serializeUint(out, "deployBlock", block.number);
         vm.serializeAddress(out, "deployer", deployer);
 
