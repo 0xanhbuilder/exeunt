@@ -7,7 +7,8 @@
   "scripts": {
     "e2e": "tsx src/run.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "fork:up": "tsx src/fork-up.ts"
+    "fork:up": "tsx src/fork-up.ts",
+    "ui": "tsx src/ui.ts"
   },
   "dependencies": {
     "@exeunt/sdk": "*",

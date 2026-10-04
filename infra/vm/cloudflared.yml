@@ -1,0 +1,11 @@
+# Cloudflare Tunnel: public hostnames reach the server without any open inbound port.
+tunnel: __TUNNEL_ID__
+credentials-file: /etc/cloudflared/__TUNNEL_ID__.json
+ingress:
+  - hostname: api.exeunt.space
+    service: http://127.0.0.1:8787
+  - hostname: exeunt.space
+    service: http://127.0.0.1:8080
+  - hostname: www.exeunt.space
+    service: http://127.0.0.1:8080
+  - service: http_status:404

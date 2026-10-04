@@ -1,0 +1,10 @@
+[Unit]
+Description=Reset the Earn bank-run fork to its seeded state once a day
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 UTC
+Persistent=true
+Unit=exeunt-refresh@earn-bank-run.service
+
+[Install]
+WantedBy=timers.target

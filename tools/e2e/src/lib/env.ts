@@ -51,7 +51,9 @@ export function forkSpecs(env: Record<string, string>): Record<NetworkKey, ForkS
     "earn-bank-run": {
       network: "earn-bank-run",
       port: 8704,
-      forkUrl: env.ROBINHOOD_MAINNET_RPC ?? "https://rpc.mainnet.chain.robinhood.com",
+      // dRPC serves historical Robinhood Chain state; the official RPC does not, so a fork of it decays.
+      forkUrl: env.ROBINHOOD_ARCHIVE_RPC ?? "https://robinhood.drpc.org",
+      forkBlock: 79_876_918, // 2026-10-04 10:49 UTC, Steakhouse USDG live state
     },
   };
 }

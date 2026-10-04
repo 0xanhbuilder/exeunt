@@ -1,0 +1,11 @@
+# Static web app behind the Cloudflare Tunnel (TLS terminates at Cloudflare).
+:8080 {
+	@www host www.exeunt.space
+	redir @www https://exeunt.space{uri} permanent
+
+	root * /var/www/exeunt
+	encode gzip
+	header /assets/* Cache-Control "public, max-age=31536000, immutable"
+	header /deployments/* Cache-Control "no-cache"
+	file_server
+}

@@ -1,0 +1,19 @@
+[Unit]
+Description=Deploy Exeunt to the demo fork and seed it (%i)
+Requires=exeunt-anvil@%i.service
+After=exeunt-anvil@%i.service
+
+[Service]
+Type=oneshot
+User=exeunt
+WorkingDirectory=/opt/exeunt
+Environment=HOME=/home/exeunt
+Environment=PATH=/home/exeunt/.foundry/bin:/usr/local/bin:/usr/bin:/bin
+ExecStartPre=/bin/sleep 5
+ExecStart=/usr/bin/npx tsx tools/e2e/src/fork-up.ts --network=%i --reuse
+# Publish the fresh addresses to the web app; the backend reloads them on change.
+ExecStartPost=/bin/cp /opt/exeunt/contracts/deployments/local/%i.json /var/www/exeunt/deployments/%i.json
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=multi-user.target

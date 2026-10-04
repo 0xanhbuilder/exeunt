@@ -10,7 +10,8 @@ import { bankRun } from "./scenarios/morpho.js";
 /**
  * Brings up long-running demo forks for the web app and backend: anvil on 8601-8604, Exeunt deployed
  * (deployments/local/<network>.json), the scenario's frozen state, and seeded sessions, bids and vault capital.
- * Usage: npm run fork:up -w @exeunt/e2e -- --network=all
+ * Usage: npm run fork:up -w @exeunt/e2e -- --network=all [--reuse]
+ * --reuse seeds a fork node that is already running (started by a supervisor) instead of starting one.
  */
 
 const DEMO_PORTS: Record<NetworkKey, number> = {
@@ -146,12 +147,17 @@ async function seedMorpho(r: Recorder, sdk: ExeuntClient, kit: KitContext, a: Ac
   });
 }
 
-async function up(network: NetworkKey, base: ForkSpec): Promise<void> {
+async function up(network: NetworkKey, base: ForkSpec, reuse: boolean): Promise<void> {
   const spec = { ...base, port: DEMO_PORTS[network] };
   const rpcUrl = `http://127.0.0.1:${spec.port}`;
   log(`\n== ${network} on ${rpcUrl}`);
-  if (await rpcUp(rpcUrl)) throw new Error(`port ${spec.port} is already serving; stop that node first`);
-  startDetached(spec);
+  if (reuse) {
+    // A supervisor (systemd on the demo server) runs the fork node; only deploy and seed it.
+    if (!(await rpcUp(rpcUrl))) throw new Error(`--reuse: nothing is serving on port ${spec.port}`);
+  } else {
+    if (await rpcUp(rpcUrl)) throw new Error(`port ${spec.port} is already serving; stop that node first`);
+    startDetached(spec);
+  }
   for (let i = 0; i < 120 && !(await rpcUp(rpcUrl)); i++) await new Promise((res) => setTimeout(res, 1000));
   const deployment = parseDeployment(await deployToFork(spec, { outDir: "./deployments/local/" }));
   const chain = { ...NETWORKS[network].chain, rpcUrls: { default: { http: [rpcUrl] } } };
@@ -171,8 +177,9 @@ async function up(network: NetworkKey, base: ForkSpec): Promise<void> {
 async function main(): Promise<void> {
   const arg = process.argv.find((x) => x.startsWith("--network="))?.split("=")[1] ?? "all";
   const keys = (arg === "all" ? Object.keys(DEMO_PORTS) : arg.split(",")) as NetworkKey[];
+  const reuse = process.argv.includes("--reuse");
   const specs = forkSpecs(readDotEnv());
-  for (const k of keys) await up(k, specs[k]);
+  for (const k of keys) await up(k, specs[k], reuse);
   log("\nForks keep running in the background. Stop them by ending the anvil processes.");
 }
 

@@ -1,0 +1,15 @@
+[Unit]
+Description=Exeunt demo fork node (%i)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=exeunt
+EnvironmentFile=/etc/exeunt/anvil-%i.env
+# Robinhood Chain's RPC sits behind Cloudflare, which challenges non-browser user agents under load.
+ExecStart=/home/exeunt/.foundry/bin/anvil --fork-url ${FORK_URL} $FORK_BLOCK_ARGS --port ${PORT} --host 127.0.0.1 --gas-limit 100000000 --silent --fork-header "User-Agent: Mozilla/5.0 (exeunt-demo)"
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

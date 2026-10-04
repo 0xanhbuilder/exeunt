@@ -1,0 +1,10 @@
+[Unit]
+Description=Reset the Kelp replay fork to its seeded state once a day
+
+[Timer]
+OnCalendar=*-*-* 03:00:00 UTC
+Persistent=true
+Unit=exeunt-refresh@kelp-replay.service
+
+[Install]
+WantedBy=timers.target

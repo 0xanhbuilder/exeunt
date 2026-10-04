@@ -1,0 +1,7 @@
+[Unit]
+Description=Restart and re-seed the Exeunt demo fork (%i)
+
+[Service]
+Type=oneshot
+ExecStart=/bin/systemctl restart exeunt-anvil@%i.service
+ExecStart=/bin/systemctl start exeunt-seed@%i.service

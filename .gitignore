@@ -38,6 +38,7 @@ contracts/broadcast/
 contracts/deployments/local/
 
 # Tooling output
+.release/
 reports/
 *.log
 .DS_Store

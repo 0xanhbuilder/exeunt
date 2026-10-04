@@ -1,0 +1,16 @@
+[Unit]
+Description=Exeunt backend API (capacity, alerts, fork faucet, fork RPC proxy, MCP)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=exeunt
+WorkingDirectory=/opt/exeunt/apps/backend
+EnvironmentFile=/etc/exeunt/backend.env
+Environment=HOME=/home/exeunt
+ExecStart=/usr/bin/npx tsx src/server.ts
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
