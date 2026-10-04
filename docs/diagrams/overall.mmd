@@ -1,0 +1,11 @@
+flowchart TD
+    A["1. The pool freezes at 100% utilization"] --> B{"2. Sell now?"}
+    B -->|Yes| C["3a. Sell into escrowed bids"]
+    B -->|No| D["3b. Open a Dutch auction"]
+    D --> E{"4. Who takes it?"}
+    E -->|A same-asset borrower| F["5a. Buy and repay"]
+    E -->|A limit bid| G["5b. Anyone matches the bid"]
+    C --> H(["6. The seller is paid at once"])
+    F --> H
+    G --> H
+    H --> I(["7. Buyers redeem when the pool refills"])

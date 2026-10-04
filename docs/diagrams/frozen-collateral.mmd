@@ -1,0 +1,12 @@
+sequenceDiagram
+    autonumber
+    participant U as Borrower
+    participant R as Collateral route
+    participant P as Aave
+    participant M as Exit market
+    U->>R: Repay with frozen aWETH collateral
+    R->>P: Flash-borrow USDC, repay the debt
+    R->>M: Sell the aWETH into USDC bids
+    M->>R: USDC proceeds
+    R->>P: Return the flash loan
+    R->>U: Surplus and unsold collateral

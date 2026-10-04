@@ -1,0 +1,12 @@
+sequenceDiagram
+    autonumber
+    participant B as Bidder
+    participant M as Exit market
+    participant S as Seller
+    participant K as Anyone
+    B->>M: Escrow funds, set a minimum discount
+    S->>M: Sell now into the bid
+    M->>S: Payment from the escrow
+    M->>B: Receipts
+    K->>M: Match an auction that reached the bid
+    B->>M: Cancel: unused escrow back at once

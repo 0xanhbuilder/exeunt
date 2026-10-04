@@ -1,0 +1,14 @@
+sequenceDiagram
+    autonumber
+    participant S as Seller
+    participant M as Exit market
+    participant B as Buyer
+    S->>M: Escrow receipts, set the auction curve
+    Note over M,B: The discount rises in steps, never falls
+    B->>M: Buy at the current discount
+    M->>S: Payment, at once
+    S->>M: Take back the unsold rest, any time
+    opt Sell now instead
+        S->>M: Sell into chosen escrowed bids
+        M->>S: Each bid pays from its escrow
+    end

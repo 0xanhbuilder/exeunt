@@ -1,0 +1,17 @@
+sequenceDiagram
+    autonumber
+    participant B as Buyer
+    participant M as Exit market
+    participant P as Lending pool
+    participant S as Seller
+    B->>M: Buy, paying with collateral
+    M->>P: Repay the buyer's debt, as in 5.3
+    Note over P: Part of the collateral is freed
+    alt Aave
+        M->>P: Redeem freed aToken collateral, approved once
+    else Morpho
+        M->>P: Withdraw it with the buyer's signed grant
+        M->>P: Apply the buyer's signed revoke
+    end
+    P->>S: Collateral worth the discounted price
+    Note over B,P: Reverts if health went down or an authorization remains

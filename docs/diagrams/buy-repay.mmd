@@ -1,0 +1,15 @@
+sequenceDiagram
+    autonumber
+    participant B as Buyer
+    participant M as Exit market
+    participant F as Flash lender
+    participant P as Lending pool
+    participant S as Seller
+    B->>M: Buy receipts worth X
+    M->>F: Borrow X
+    M->>P: Repay X of the buyer's debt
+    Note over P: X of new liquidity
+    M->>P: Redeem X of the seller's receipts
+    M->>F: Return the loan
+    B->>S: Pay the discounted price
+    Note over M,P: Withdrawable liquidity is unchanged

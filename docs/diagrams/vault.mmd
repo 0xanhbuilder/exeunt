@@ -1,0 +1,15 @@
+sequenceDiagram
+    autonumber
+    participant D as Depositor
+    participant V as Exeunt Vault
+    participant M as Exit market
+    participant P as Lending pool
+    participant K as Anyone
+    D->>V: Deposit WETH or USDG
+    V->>M: Bid at 3%, up to 20% of capital
+    Note over V,M: A freeze: sellers sell to the bid
+    M->>V: Receipts, below face value
+    K->>V: Trigger recovery once the pool refills
+    V->>P: Redeem the receipts
+    P->>V: The underlying, at full value
+    D->>V: Withdraw any time: idle now, receipts in kind

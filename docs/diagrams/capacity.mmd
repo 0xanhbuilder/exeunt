@@ -1,0 +1,10 @@
+sequenceDiagram
+    autonumber
+    participant U as Curator or user
+    participant B as Backend
+    participant M as Exit market
+    U->>M: Read exit capacity, no permission needed
+    U->>B: Set a utilization threshold
+    B->>M: Snapshot capacity every minute
+    Note over U,B: Utilization crosses the threshold
+    B->>U: In-app alert and signed webhook

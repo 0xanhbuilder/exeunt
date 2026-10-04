@@ -109,171 +109,111 @@ Exeunt combines four parts:
 
 The flow below follows a stuck deposit from the freeze to the exit.
 
-```mermaid
-flowchart TD
-    A["1. The pool reaches 100% utilization; the depositor cannot withdraw"] --> B{"2. Sell now or wait for a better price?"}
-    B -->|Now| C["3a. Sell into the best escrowed bids, including the Exeunt Vault"]
-    B -->|Price| D["3b. Open a Dutch auction; the discount rises over time"]
-    D --> E{"4. Who takes it?"}
-    E -->|A same-asset borrower| F["5a. Buy and repay: debt repaid at face value, liquidity unchanged"]
-    E -->|A limit bid| G["5b. Anyone matches the auction with the bid"]
-    C --> H["6. The seller is paid at once in USDG, USDC or the underlying"]
-    F --> H
-    G --> H
-    H --> I["7. Buyers hold the receipts and redeem them when the pool refills"]
-```
+<img src="images/overall.png" alt="The overall flow, from the freeze to the exit" width="460">
 
 1. Borrowers have taken all of the pool's liquidity; deposits cannot be withdrawn.
 2. The depositor chooses between selling now and waiting for a better price.
-3. **3a.** Selling now fills the escrowed bids with the smallest discount first. **3b.** An auction starts at a small discount that only rises.
-4. Whoever accepts the current discount buys.
-5. **5a.** A borrower of the same asset buys and has their debt repaid in the same transaction. **5b.** When the auction reaches a bid's discount, anyone can match the two.
-6. The seller is paid immediately in the asset they accepted.
+3. The depositor sells:
+   - **3a.** Now, into the escrowed bids with the smallest discount first.
+   - **3b.** By auction, starting at a small discount that only rises.
+4. The auction runs until someone accepts its current discount.
+5. Who takes it:
+   - **5a.** A borrower of the same asset buys and has their debt repaid in the same transaction.
+   - **5b.** When the auction reaches a limit bid's discount, anyone can match the two.
+6. The seller is paid immediately, in the asset they accepted.
 7. Buyers keep the receipt, which keeps earning interest, and redeem it at full value when liquidity returns.
 
-### 5.2. Selling: auctions and sell-now
+### 5.2. Selling
 
 How a stuck depositor gets out, and what they control.
 
-```mermaid
-flowchart LR
-    S["Seller"] -->|1. escrows receipts| M["Exit market"]
-    S -->|2. sets start discount, step, cap, duration, accepted assets| M
-    M -->|3. discount rises in steps, never falls| M
-    S -.->|4. takes back unsold receipts at any time| M
-    S -->|5. or sells now into chosen bids| B["Escrowed bids"]
-    B -->|6. payment from escrow| S
-```
+![Auctions and selling now](images/selling.png)
 
-1. The seller escrows receipts in the market.
-2. They choose the curve (for example 1% at the start, +0.5% an hour, capped at 15%) and the assets they accept.
-3. The discount only rises with time, so waiting longer means a better deal for buyers and a fill sooner.
-4. Unsold receipts come back at once, with no waiting period; what already sold stays sold.
-5. Or the seller sells straight into escrowed bids, smallest discount first.
-6. Each bid pays from its escrow, at its own limit price.
+1. The seller escrows receipts and sets the auction curve (for example 1% at the start, +0.5% an hour, capped at 15%) and the assets they accept. The discount only rises with time.
+2. A buyer buys at the current discount.
+3. The seller is paid at once.
+4. The unsold rest comes back whenever the seller asks, with no waiting period; what already sold stays sold.
+5. Or the seller sells straight into escrowed bids they choose.
+6. Each bid pays from its own escrow, at its own limit price.
 
 ### 5.3. Buy and repay
 
 How a borrower buys a stuck receipt without taking any liquidity out of the pool.
 
-```mermaid
-sequenceDiagram
-    participant Buyer
-    participant Market as Exit market
-    participant Flash as Flash source
-    participant Pool as Frozen pool
-    participant Seller
-    Buyer->>Market: 1. buy receipts worth X at the current discount
-    Market->>Flash: 2. borrow X of the underlying
-    Market->>Pool: 3. repay X of the buyer's debt
-    Note over Pool: 4. the repayment adds X of liquidity
-    Market->>Pool: 5. redeem X of the seller's escrowed receipts
-    Market->>Flash: 6. return the flash loan
-    Buyer->>Seller: 7. pay the discounted price
-```
+![Buy and repay](images/buy-repay.png)
 
-1. The buyer picks an auction and an amount; they must owe at least that much of the same asset.
-2. The market borrows the underlying for the length of the transaction: from Morpho (free) or from the Aave pool itself.
-3. It repays the buyer's debt on their behalf.
-4. That repayment is new liquidity in the pool.
-5. The market uses exactly that liquidity to redeem the seller's escrowed receipts.
-6. It returns the flash loan. If even the pool's last unit of liquidity is gone, a small flash loan is reused in rounds, up to 64 per purchase.
-7. The buyer pays the seller the discounted price, so their debt fell by 100 for, say, 95. The pool's withdrawable liquidity is the same as before.
+1. The buyer picks an auction and an amount X; they must owe at least X of the same asset.
+2. The market borrows X of the underlying for the length of the transaction: from Morpho (free) or from the Aave pool itself.
+3. It repays X of the buyer's debt on their behalf, which adds X of liquidity to the pool.
+4. It uses exactly that liquidity to redeem X of the seller's escrowed receipts.
+5. It returns the flash loan. If even the pool's last unit of liquidity is gone, a small flash loan is reused in rounds, up to 64 per purchase.
+6. The buyer pays the seller the discounted price: their debt fell by 100 for, say, 95. The pool's withdrawable liquidity is the same as before.
 
 ### 5.4. Flash mode: paying with freed collateral
 
 For a buyer who has debt but no cash.
 
-```mermaid
-flowchart TD
-    A["1. Debt repaid first, as in 5.3"] --> B["2. Part of the buyer's collateral is freed"]
-    B --> C{"3. Which venue?"}
-    C -->|Aave| D["4a. The market pulls the freed aToken collateral, approved once"]
-    C -->|Morpho| E["4b. The market applies the buyer's signed grant and withdraws freed collateral"]
-    D --> F["5. The seller receives that collateral, worth the discounted price"]
-    E --> F
-    F --> G["6. On Morpho the signed revoke is applied; the call fails if any authorization remains"]
-    G --> H["7. The call also fails if the buyer's health factor went down"]
-```
+![Paying with freed collateral](images/flash-mode.png)
 
-1. The market repays the buyer's debt first, exactly as in 5.3.
-2. With less debt, part of the collateral is no longer needed.
-3. Each venue releases it differently.
-4. **4a.** On Aave, the buyer approves the market once for their collateral aToken; the market redeems it to pay the seller. **4b.** On Morpho, the buyer signs two EIP-712 messages, a grant and a revoke; no transaction is needed for them.
-5. The seller receives the collateral asset (for example USDC or USDe), worth the discounted price.
-6. On Morpho, the revoke is applied in the same transaction and the market checks that no authorization survives.
-7. The collateral taken is always worth less than the debt repaid, so the health factor goes up; the contract checks it.
+1. The buyer chooses to pay with collateral instead of cash.
+2. The market repays the buyer's debt first, exactly as in 5.3, so part of the collateral is no longer needed.
+3. On Aave, the market redeems the freed aToken collateral; the buyer approved the market for it once.
+4. On Morpho, the market withdraws the freed collateral with the buyer's signed grant (an EIP-712 signature, not a transaction).
+5. In the same transaction it applies the buyer's signed revoke, and fails if any authorization remains.
+6. The seller receives the collateral asset, for example USDC or USDe, worth the discounted price. The collateral taken is always worth less than the debt repaid, so the buyer's health factor goes up; the call fails otherwise.
 
 ### 5.5. Limit bids
 
 Buyers who do not borrow, ready before any freeze.
 
-```mermaid
-flowchart LR
-    B["Bidder"] -->|1. escrows funds, sets minimum discount and size| M["Exit market"]
-    M -->|2. public order book| P["Sellers and apps"]
-    P -->|3a. sell now into the bid| M
-    A["Auction at a deeper discount"] -->|3b. anyone matches it| M
-    M -->|4. receipts to the bidder, payment to the seller| B
-    B -.->|5. cancels and is refunded at once| M
-```
+![Limit bids](images/limit-bids.png)
 
-1. A bidder escrows USDG, USDC or the underlying and sets the minimum discount they accept.
-2. Bids form a public order book; only escrowed funds count.
-3. **3a.** A seller sells straight into the bid. **3b.** When an auction's discount reaches the bid, anyone can match them.
-4. The bidder receives receipts; the seller receives the escrow.
-5. A bid can be cancelled at any time; unused escrow comes back in the same transaction.
+1. A bidder escrows USDG, USDC or the underlying and sets the minimum discount they accept. Only escrowed funds count, and every bid is public.
+2. A seller sells straight into the bid.
+3. The seller is paid from the escrow, at the bid's limit price.
+4. The bidder receives the receipts.
+5. When an auction's discount reaches the bid, anyone can match the two.
+6. A bid can be cancelled at any time; unused escrow comes back in the same transaction.
 
 ### 5.6. Exeunt Vault
 
 A shared buyer of last resort that earns the discount.
 
-```mermaid
-flowchart TD
-    D["1. Depositors deposit the vault asset"] --> V["Exeunt Vault"]
-    V -->|"2. bids at a 3% minimum discount, up to 20% of capital per receipt"| M["Exit market"]
-    M -->|3. receipts bought during a freeze| V
-    V -->|4. anyone triggers redemption once the pool refills| P["Pool"]
-    P -->|5. underlying at full value| V
-    D2["Depositor"] -.->|"6. withdraws any time: idle capital now, receipts in kind"| V
-```
+![The Exeunt Vault](images/vault.png)
 
-1. Depositors put in the vault asset (WETH on Arbitrum, USDG on Robinhood Chain).
-2. The vault keeps its capital out of the pool it protects and holds it as escrowed bids, by rules fixed at deployment.
-3. During a freeze, sellers sell to it at once.
-4. When the pool refills, anyone can trigger the vault to redeem what it bought.
-5. The discount becomes depositors' profit.
-6. Depositors can always leave: idle capital is paid out immediately, receipts already bought are paid in kind.
+1. Depositors put in the vault asset: WETH on Arbitrum, USDG on Robinhood Chain.
+2. The vault keeps its capital out of the pool it protects and holds it as escrowed bids, by rules fixed at deployment: at least a 3% discount, at most 20% of its capital per receipt.
+3. During a freeze, sellers sell to it at once, below face value.
+4. When the pool refills, anyone can trigger the vault's recovery.
+5. The vault redeems the receipts it bought.
+6. It receives the underlying at full value, so the discount becomes depositors' profit.
+7. Depositors can always leave: idle capital is paid out immediately, receipts already bought are paid in kind.
 
 ### 5.7. Exit capacity and alerts
 
 How depositors, curators and risk teams see a freeze coming.
 
-1. Each market exposes its pool's exit capacity on-chain in one view call: withdrawable now, total supplied, utilization, same-asset debt that can absorb receipts, and receipts already for sale.
-2. A second call returns how much escrowed bids would buy at a given discount.
+![Exit capacity and alerts](images/capacity.png)
+
+1. Anyone reads a pool's exit capacity on-chain in one call, with no permission and no fee: withdrawable now, total supplied, utilization, same-asset debt that can absorb receipts, receipts for sale, and how much escrowed bids would buy at a given discount.
+2. A user or curator sets a utilization threshold.
 3. The backend snapshots capacity every minute and keeps seven days of history for the utilization chart.
-4. Users set a utilization threshold; when it is crossed, they get an in-app alert and a signed webhook (HMAC-SHA256), retried if delivery fails.
+4. When utilization crosses the threshold, it sends an in-app alert and a signed webhook (HMAC-SHA256), retried if delivery fails.
 
 ### 5.8. Frozen collateral
 
 For Aave borrowers whose collateral is the frozen asset.
 
-```mermaid
-flowchart LR
-    A["1. Borrower with frozen aWETH collateral and USDC debt"] --> R["Collateral route"]
-    R -->|2. flash-borrows USDC and repays the debt first| P["Aave"]
-    R -->|3. sells the aWETH into USDC bids| M["Exit market"]
-    M -->|4. USDC proceeds| R
-    R -->|5. returns the flash loan; surplus and unsold collateral back to the borrower| A
-```
+![Repaying with frozen collateral](images/frozen-collateral.png)
 
-1. The borrower cannot withdraw collateral from the frozen pool to repay or rebalance.
-2. The route repays the debt first, so the health factor never dips mid-way.
-3. It sells the frozen aToken collateral into escrowed bids instead of withdrawing it.
-4. The bids pay in the debt asset.
-5. The flash loan is returned; anything left over goes back to the borrower. A second mode swaps frozen collateral for new collateral instead.
+1. A borrower with frozen aWETH collateral and USDC debt asks the route to repay; they approved the route for the aWETH once.
+2. The route flash-borrows USDC and repays the debt first, so the health factor never dips mid-way.
+3. It sells the aWETH into escrowed USDC bids instead of withdrawing it.
+4. The bids pay in USDC.
+5. The route returns the flash loan.
+6. Any surplus and any unsold collateral go back to the borrower.
 
-On Morpho this is not needed: collateral there is never lent out.
+A second mode swaps frozen collateral for new collateral instead. On Morpho this route is not needed: collateral there is never lent out.
 
 ### 5.9. Integrations for apps and AI agents
 
