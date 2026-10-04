@@ -439,8 +439,10 @@ export class ExeuntClient {
     const grant = { authorizer: account, authorized: d.market, isAuthorized: true, nonce, deadline };
     const revoke = { ...grant, isAuthorized: false, nonce: nonce + 1n };
     const sign = async (message: typeof grant) => {
+      // Prefer the wallet's own (local or injected) account; an address alone makes viem ask the RPC node to sign.
+      const signer = wallet.account && wallet.account.address.toLowerCase() === account.toLowerCase() ? wallet.account : account;
       const sig = await wallet.signTypedData({
-        account,
+        account: signer,
         domain,
         types,
         primaryType: "Authorization",

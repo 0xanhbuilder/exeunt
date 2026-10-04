@@ -6,9 +6,12 @@ import { ExeuntClient, NETWORKS, parseDeployment, type NetworkKey } from "@exeun
 import { kitContext } from "@exeunt/forkkit";
 import { CONTRACTS_DIR, deployToFork, forkSpecs, readDotEnv, REPO_ROOT, startAnvil, type ForkSpec } from "./lib/env.js";
 import { makeActors, makeClients } from "./lib/chain.js";
+import { privateKeyToAddress } from "viem/accounts";
+import { Anvil } from "@exeunt/forkkit";
 import { Recorder, toMarkdown, type ScenarioResult } from "./lib/report.js";
 import { aaveScenario } from "./scenarios/aave.js";
 import { liveAaveScenario } from "./scenarios/live-aave.js";
+import { liveMorphoScenario } from "./scenarios/live-morpho.js";
 import { morphoScenario } from "./scenarios/morpho.js";
 
 // Top Steakhouse USDG share holders on Robinhood Chain, found by scanning the vault's Transfer logs.
@@ -25,46 +28,18 @@ const STEAKHOUSE_HOLDERS = [
 
 const ALL: NetworkKey[] = ["arbitrum-sepolia", "kelp-replay", "robinhood-testnet", "earn-bank-run"];
 
-function parseArgs(): { networks: NetworkKey[]; mode: "fork" | "live" } {
+type Mode = "fork" | "live" | "rehearse";
+
+function parseArgs(): { networks: NetworkKey[]; mode: Mode } {
   const arg = process.argv.find((a) => a.startsWith("--network="))?.split("=")[1] ?? "all";
-  const mode = process.argv.includes("--live") ? "live" : "fork";
+  const mode: Mode = process.argv.includes("--live") ? "live" : process.argv.includes("--rehearse") ? "rehearse" : "fork";
   const networks = arg === "all" ? ALL : (arg.split(",") as NetworkKey[]);
   for (const n of networks) if (!ALL.includes(n)) throw new Error(`unknown network ${n}`);
   return { networks, mode };
 }
 
-/** Live testnet run with the funded deployer key and the second test key from .env. */
-async function runLive(network: NetworkKey, env: Record<string, string>): Promise<ScenarioResult> {
-  const t0 = Date.now();
-  const r = new Recorder(network, log);
-  const result: ScenarioResult = { network, mode: "live", steps: r.steps, startedAt: new Date().toISOString(), ms: 0 };
-  log(`
-== ${network} (live)`);
-  try {
-    if (network !== "arbitrum-sepolia") throw new Error(`live run implemented for arbitrum-sepolia only`);
-    const file = join(CONTRACTS_DIR, "deployments", `${network}.json`);
-    if (!existsSync(file)) throw new Error(`no live deployment at ${file}`);
-    const deployment = parseDeployment(JSON.parse(readFileSync(file, "utf8")));
-    result.deployment = deployment as unknown as Record<string, unknown>;
-    const rpcUrl = env.ARB_SEPOLIA_RPC ?? NETWORKS[network].defaultRpcUrl;
-    const chain = NETWORKS[network].chain;
-    const { publicClient } = makeClients(rpcUrl, chain);
-    result.forkBlock = String(await publicClient.getBlockNumber());
-    const keys = [env.PRIVATE_KEY, env.E2E_BUYER_KEY] as Hex[];
-    if (!keys[0] || !keys[1]) throw new Error("PRIVATE_KEY and E2E_BUYER_KEY must be set in .env");
-    const [seller, buyer] = makeActors(["seller", "buyer"], rpcUrl, chain, keys);
-    if (!seller || !buyer) throw new Error("actors");
-    await liveAaveScenario(r, new ExeuntClient(deployment, publicClient), { seller, buyer });
-  } catch (e) {
-    r.steps.push({ name: "runner", ok: false, ms: 0, details: {}, txs: [], error: e instanceof Error ? e.message : String(e) });
-    log(`  ✗ runner: ${e instanceof Error ? e.message : String(e)}`);
-  } finally {
-    result.ms = Date.now() - t0;
-  }
-  return result;
-}
-
-const log = (line: string) => process.stdout.write(`${line}\n`);
+const log = (line: string) => process.stdout.write(`${line}
+`);
 
 async function waitForRpc(url: string): Promise<void> {
   for (let i = 0; i < 120; i++) {
@@ -81,6 +56,64 @@ async function waitForRpc(url: string): Promise<void> {
     await new Promise((r) => setTimeout(r, 1000));
   }
   throw new Error(`anvil at ${url} did not start`);
+}
+
+const LIVE_RPC_ENV: Partial<Record<NetworkKey, string>> = {
+  "arbitrum-sepolia": "ARB_SEPOLIA_RPC",
+  "robinhood-testnet": "ROBINHOOD_TESTNET_RPC",
+};
+
+/**
+ * Live testnet run with the funded deployer key and the second test key from .env.
+ * In rehearse mode the same scenario runs on a fresh anvil fork with those real accounts (gas topped up),
+ * deployed by the real deployer key, so a live run is proven before it spends anything.
+ */
+async function runLive(network: NetworkKey, env: Record<string, string>, rehearse: boolean, spec: ForkSpec): Promise<ScenarioResult> {
+  const t0 = Date.now();
+  const r = new Recorder(network, log);
+  const mode = rehearse ? "fork" : "live";
+  const result: ScenarioResult = { network, mode, steps: r.steps, startedAt: new Date().toISOString(), ms: 0 };
+  log(`
+== ${network} (${rehearse ? "rehearsal of the live run on a fork" : "live"})`);
+  let anvil: ChildProcess | undefined;
+  try {
+    const rpcEnv = LIVE_RPC_ENV[network];
+    if (!rpcEnv) throw new Error(`live runs exist for live testnets only`);
+    const keys = [env.PRIVATE_KEY, env.E2E_BUYER_KEY] as Hex[];
+    if (!keys[0] || !keys[1]) throw new Error("PRIVATE_KEY and E2E_BUYER_KEY must be set in .env");
+    let rpcUrl = env[rpcEnv] ?? NETWORKS[network].defaultRpcUrl;
+    let raw: unknown;
+    if (rehearse) {
+      anvil = startAnvil(spec, log);
+      rpcUrl = `http://127.0.0.1:${spec.port}`;
+      await waitForRpc(rpcUrl);
+      const probe = makeClients(rpcUrl, { ...NETWORKS[network].chain, rpcUrls: { default: { http: [rpcUrl] } } });
+      const cheats = new Anvil(probe.publicClient);
+      for (const k of keys) await cheats.setBalance(privateKeyToAddress(k), 10n ** 17n);
+      raw = await deployToFork(spec, { key: keys[0], outDir: "./deployments/local/rehearse/" });
+    } else {
+      const file = join(CONTRACTS_DIR, "deployments", `${network}.json`);
+      if (!existsSync(file)) throw new Error(`no live deployment at ${file}`);
+      raw = JSON.parse(readFileSync(file, "utf8"));
+    }
+    const deployment = parseDeployment(raw);
+    result.deployment = deployment as unknown as Record<string, unknown>;
+    const chain = { ...NETWORKS[network].chain, rpcUrls: { default: { http: [rpcUrl] } } };
+    const { publicClient } = makeClients(rpcUrl, chain);
+    result.forkBlock = String(await publicClient.getBlockNumber());
+    const [seller, buyer] = makeActors(["seller", "buyer"], rpcUrl, chain, keys);
+    if (!seller || !buyer) throw new Error("actors");
+    const sdk = new ExeuntClient(deployment, publicClient);
+    if (deployment.venue === "aave") await liveAaveScenario(r, sdk, { seller, buyer });
+    else await liveMorphoScenario(r, sdk, { seller, buyer });
+  } catch (e) {
+    r.steps.push({ name: "runner", ok: false, ms: 0, details: {}, txs: [], error: e instanceof Error ? e.message : String(e) });
+    log(`  ✗ runner: ${e instanceof Error ? e.message : String(e)}`);
+  } finally {
+    anvil?.kill();
+    result.ms = Date.now() - t0;
+  }
+  return result;
 }
 
 async function runFork(spec: ForkSpec): Promise<ScenarioResult> {
@@ -144,7 +177,9 @@ async function main(): Promise<void> {
   const specs = forkSpecs(env);
   const startedAt = new Date().toISOString();
   const results: ScenarioResult[] = [];
-  for (const n of networks) results.push(mode === "live" ? await runLive(n, env) : await runFork(specs[n]));
+  for (const n of networks) {
+    results.push(mode === "fork" ? await runFork(specs[n]) : await runLive(n, env, mode === "rehearse", specs[n]));
+  }
 
   const dir = join(REPO_ROOT, "reports");
   mkdirSync(dir, { recursive: true });

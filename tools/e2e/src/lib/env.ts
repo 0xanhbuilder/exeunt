@@ -80,14 +80,23 @@ export function run(cmd: string, args: string[], cwd: string, extraEnv: Record<s
 }
 
 /** Deploys Exeunt to the fork with forge and returns the written deployment JSON. */
-export async function deployToFork(spec: ForkSpec): Promise<unknown> {
-  const outDir = "./deployments/local/e2e/";
+export async function deployToFork(
+  spec: ForkSpec,
+  opts: { key?: string; outDir?: string } = {},
+): Promise<unknown> {
+  const outDir = opts.outDir ?? "./deployments/local/e2e/";
   mkdirSync(join(CONTRACTS_DIR, outDir), { recursive: true });
   await run(
     "forge",
     ["script", "script/Deploy.s.sol", "--rpc-url", `http://127.0.0.1:${spec.port}`, "--broadcast", "--slow"],
     CONTRACTS_DIR,
-    { DEPLOY_NETWORK: spec.network, PRIVATE_KEY: ANVIL_DEPLOYER_KEY, DEPLOY_OUT_DIR: outDir },
+    {
+      DEPLOY_NETWORK: spec.network,
+      PRIVATE_KEY: opts.key ?? ANVIL_DEPLOYER_KEY,
+      DEPLOY_OUT_DIR: outDir,
+      // Keep fork broadcasts apart from the records of real testnet deployments.
+      FOUNDRY_BROADCAST: "broadcast/forks",
+    },
   );
   return JSON.parse(readFileSync(join(CONTRACTS_DIR, outDir, `${spec.network}.json`), "utf8"));
 }
