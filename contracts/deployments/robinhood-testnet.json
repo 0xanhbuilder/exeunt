@@ -1,0 +1,24 @@
+{
+  "adapter": "0xc5111DE4Be0a716791EB5FEAD3c15Ffa167e00c2",
+  "chainId": 46630,
+  "collateral": "0x983aB3A26cA032e33ab52CB53b948b8b6D6F3505",
+  "deployBlock": 128660501,
+  "deployer": "0x1641ad2Fe2eb6f5b001E8f21C2B655E0132272a4",
+  "earnMarketId": "0x95509e58b96cc3e41fa2ca7e85d4081b8ad10b328d6207468e75bed91b0335e6",
+  "earnVault": "0x06FCA6bc7D8086afa2DCf8B1baDfe5AC7a1D301C",
+  "exeuntVault": "0xaD5F6c0b898699bBcf3De4F64FfFa58Dc29D81d8",
+  "flashMarketId": "0xc9a598d546a9db168f6c5f42872ebf9bc01f75cd136a7e0c7d02e299ba4775ea",
+  "irm": "0xf3CCFeA19a622499C1506b5E8B66A2EF61EF1099",
+  "market": "0x8307e39e03619f9454c146EDdbD2C544A4499116",
+  "morpho": "0x3F36b776DF279B9284Eee44f534D020573c90200",
+  "morphoOracle": "0x86c1be08ddBAF052C15FA8259ef888a4ef919697",
+  "network": "robinhood-testnet",
+  "payTokens": [
+    "0x7E955252E15c84f5768B83c41a71F9eba181802F",
+    "0x983aB3A26cA032e33ab52CB53b948b8b6D6F3505"
+  ],
+  "priceRouter": "0x1e474158f103102Ef4ad2Aa8AACdd93e3889b280",
+  "receipt": "0x06FCA6bc7D8086afa2DCf8B1baDfe5AC7a1D301C",
+  "underlying": "0x7E955252E15c84f5768B83c41a71F9eba181802F",
+  "venue": "morpho"
+}

@@ -50,7 +50,7 @@ Exeunt also publishes each pool's **exit capacity** on-chain (withdrawable now, 
 | Network | Venue | Receipt | Status |
 |---|---|---|---|
 | Arbitrum Sepolia | Aave V3 (testnet market) | aWETH | Live |
-| Robinhood Testnet | Morpho Blue + Vault V2, deployed by us (no Morpho on that testnet) | Earn USDG vault shares | Deployment pending testnet gas |
+| Robinhood Testnet | Morpho Blue + Vault V2, deployed by us (no Morpho on that testnet) | Earn USDG vault shares | Live |
 | Kelp replay | Arbitrum One fork at block 453,918,025 (18 Apr 2026, WETH at 100%) | aWETH | Local fork |
 | Earn bank-run | Robinhood Chain fork against the live Steakhouse USDG vault | Earn USDG vault shares | Local fork |
 
@@ -63,7 +63,20 @@ Exeunt also publishes each pool's **exit capacity** on-chain (withdrawable now, 
 | AaveCollateralRoute | [`0x425fd6d6b23Da6ed8D915Bd7EFF405E64751bf3E`](https://sepolia.arbiscan.io/address/0x425fd6d6b23Da6ed8D915Bd7EFF405E64751bf3E) |
 | PriceRouter | [`0xECFdc42919334Ad7423C78dcF0CD9EDace258BE0`](https://sepolia.arbiscan.io/address/0xECFdc42919334Ad7423C78dcF0CD9EDace258BE0) |
 
-Sources are verified on [Sourcify](https://sourcify.dev/#/lookup/0xD62db8A8eED08d2f81D9b838a37f3b54CF6df947). Payment assets: USDG (Paxos), USDC, WETH. The testnet WETH pool is already about 99.8% utilized, so it is a real frozen pool.
+Sources are verified on Arbiscan and [Sourcify](https://sourcify.dev/#/lookup/0xD62db8A8eED08d2f81D9b838a37f3b54CF6df947). Payment assets: USDG (Paxos), USDC, WETH. The testnet WETH pool is already about 99.8% utilized, so it is a real frozen pool.
+
+### Robinhood Testnet
+
+Robinhood Testnet has no Morpho deployment, so the deployment script brings up Morpho Blue, the AdaptiveCurveIrm and a Vault V2 shaped like Robinhood Earn on Paxos testnet USDG, with a simulated USDe as borrower collateral.
+
+| Contract | Address |
+|---|---|
+| MorphoVaultExitMarket (Earn USDG shares) | [`0x8307e39e03619f9454c146EDdbD2C544A4499116`](https://explorer.testnet.chain.robinhood.com/address/0x8307e39e03619f9454c146EDdbD2C544A4499116) |
+| ExeuntVault (USDG) | [`0xaD5F6c0b898699bBcf3De4F64FfFa58Dc29D81d8`](https://explorer.testnet.chain.robinhood.com/address/0xaD5F6c0b898699bBcf3De4F64FfFa58Dc29D81d8) |
+| Earn USDG vault (Vault V2) | [`0x06FCA6bc7D8086afa2DCf8B1baDfe5AC7a1D301C`](https://explorer.testnet.chain.robinhood.com/address/0x06FCA6bc7D8086afa2DCf8B1baDfe5AC7a1D301C) |
+| Morpho Blue | [`0x3F36b776DF279B9284Eee44f534D020573c90200`](https://explorer.testnet.chain.robinhood.com/address/0x3F36b776DF279B9284Eee44f534D020573c90200) |
+
+All sources are verified on the Robinhood Testnet explorer. Payment assets: USDG and the simulated USDe collateral (for flash mode).
 
 ## Running it
 
@@ -109,6 +122,8 @@ cd contracts
 DEPLOY_NETWORK=arbitrum-sepolia forge script script/Deploy.s.sol --rpc-url $ARB_SEPOLIA_RPC --broadcast
 node script/fix-deploy-block.mjs arbitrum-sepolia 421614
 ```
+
+On Robinhood Chain (an Arbitrum Orbit chain), pass `--gas-estimate-multiplier 300`: forge's local gas estimate does not include the L1 data fee, and small transactions otherwise run out of gas.
 
 ## Testing
 
