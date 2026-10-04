@@ -53,14 +53,27 @@ export async function liveAaveScenario(
     return { buyerETH: fmt(await sdk.client.getBalance({ address: buyer.address })), buyerUSDG: fmt(await sdk.balanceOf(usdg, buyer.address), 6) };
   });
 
+  await r.step("seller is topped up with WETH from the buyer when its ETH runs low", async () => {
+    const [sellerEth, sellerWeth, buyerWeth] = await Promise.all([
+      sdk.client.getBalance({ address: seller.address }),
+      sdk.balanceOf(weth, seller.address),
+      sdk.balanceOf(weth, buyer.address),
+    ]);
+    if (sellerEth + sellerWeth < parseEther("0.006") && buyerWeth > 0n) {
+      const amount = buyerWeth < parseEther("0.006") ? buyerWeth : parseEther("0.006");
+      await send(r, sdk, buyer, raw(weth, encodeFunctionData({ abi: erc20Abi, functionName: "transfer", args: [seller.address, amount] }), "Send WETH to the seller"));
+    }
+    return { sellerWETH: fmt(await sdk.balanceOf(weth, seller.address)) };
+  });
+
   await r.step("seller takes back unsold receipts from earlier runs", async () => {
     const mine = (await sdk.sessions(true)).filter((x) => x.seller === seller.address);
     for (const s of mine) await send(r, sdk, seller, sdk.withdrawUnsold(s.id));
     return { reclaimedSessions: String(mine.length) };
   });
 
-  await r.step("seller tops up to 0.004 aWETH (wrapping only what is missing)", async () => {
-    const target = parseEther("0.004");
+  await r.step("seller tops up to 0.0045 aWETH (wrapping only what is missing)", async () => {
+    const target = parseEther("0.0045");
     const have = await sdk.receiptValueOf(seller.address);
     if (have < target) {
       const need = target - have + 1_000n;
@@ -74,14 +87,16 @@ export async function liveAaveScenario(
     return { sellerAWETH: fmt(await sdk.receiptValueOf(seller.address)) };
   });
 
-  await r.step("buyer posts WETH collateral and borrows 0.004 WETH and 5 USDC (skips what earlier runs did)", async () => {
+  await r.step("buyer holds WETH collateral, 0.004 WETH of debt and USDC collateral (tops up what is missing)", async () => {
     if ((await sdk.receiptValueOf(buyer.address)) < parseEther("0.0099")) {
       await send(r, sdk, buyer, raw(weth, encodeFunctionData({ abi: wethAbi, functionName: "deposit" }), "Wrap 0.01 ETH", parseEther("0.01")));
       await ensureAllowance(r, sdk, buyer, weth, pool, parseEther("0.01"));
       await send(r, sdk, buyer, raw(pool, encodeFunctionData({ abi: aavePoolAbi, functionName: "supply", args: [weth, parseEther("0.01"), buyer.address, 0] }), "Supply 0.01 WETH collateral"));
     }
-    if ((await sdk.position(buyer.address)).debt < parseEther("0.0039")) {
-      await send(r, sdk, buyer, raw(pool, encodeFunctionData({ abi: aavePoolAbi, functionName: "borrow", args: [weth, parseEther("0.004"), 2n, 0, buyer.address] }), "Borrow 0.004 WETH"));
+    const debt = (await sdk.position(buyer.address)).debt;
+    if (debt < parseEther("0.0039")) {
+      const top = parseEther("0.004") - debt;
+      await send(r, sdk, buyer, raw(pool, encodeFunctionData({ abi: aavePoolAbi, functionName: "borrow", args: [weth, top, 2n, 0, buyer.address] }), "Borrow WETH up to 0.004 of debt"));
     }
     if ((await sdk.balanceOf(aUsdc, buyer.address)) < 3_900_000n) {
       await send(r, sdk, buyer, raw(pool, encodeFunctionData({ abi: aavePoolAbi, functionName: "borrow", args: [usdc, 5_000_000n, 2n, 0, buyer.address] }), "Borrow 5 USDC"));
