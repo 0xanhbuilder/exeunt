@@ -116,9 +116,10 @@ contract MorphoVaultExitMarket is ExitMarket, IMorphoFlashLoanCallback {
     /*                          Debt and health                            */
     /* ------------------------------------------------------------------ */
 
+    /// @dev The buyer's market must be one the vault supplies, so the repayment frees liquidity the vault can reach.
     function _market(bytes calldata venueData) internal view returns (MarketParams memory mp) {
         (mp,,) = abi.decode(venueData, (MarketParams, bool, bytes));
-        if (mp.loanToken != underlying) revert WrongMarket();
+        if (mp.loanToken != underlying || IMorphoMarketV1AdapterV2(adapter).allocation(mp) == 0) revert WrongMarket();
     }
 
     function _debtOf(address borrower, bytes calldata venueData) internal view override returns (uint256) {
@@ -145,7 +146,8 @@ contract MorphoVaultExitMarket is ExitMarket, IMorphoFlashLoanCallback {
         override
         returns (uint256 debtRepaid)
     {
-        (MarketParams memory mp, bool force,) = abi.decode(venueData, (MarketParams, bool, bytes));
+        MarketParams memory mp = _market(venueData);
+        (, bool force,) = abi.decode(venueData, (MarketParams, bool, bytes));
         // forceDeallocate takes a penalty in shares; size the repayment so the total value used equals `assets`.
         uint256 penalty = force ? vault.forceDeallocatePenalty(adapter) : 0;
         debtRepaid = Math.mulDiv(assets, WAD, WAD + penalty);

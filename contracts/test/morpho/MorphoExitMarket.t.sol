@@ -208,6 +208,15 @@ contract MorphoExitMarketTest is MorphoBase {
         assertEq(_withdrawable(), 0, "liquidity unchanged");
     }
 
+    function test_buyAndRepay_rejectsMarketTheVaultDoesNotSupply() public {
+        uint256 id = _openSession(10_000 * USD);
+        // The flash market has USDG debt-free liquidity but no vault allocation.
+        bytes memory venue = abi.encode(s.flashMarket, false, bytes(""));
+        vm.prank(buyer);
+        vm.expectRevert(MorphoVaultExitMarket.WrongMarket.selector);
+        market.buyAndRepay(id, 1_000 * USD, PAY_USDG, type(uint256).max, venue);
+    }
+
     /* ---------------------- flash mode (collateral) ----------------------- */
 
     function test_buyWithCollateral_paysSellerFromFreedCollateral() public {
