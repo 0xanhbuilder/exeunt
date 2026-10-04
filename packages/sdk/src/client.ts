@@ -276,6 +276,20 @@ export class ExeuntClient {
     });
   }
 
+  /**
+   * Aave flash mode pulls this many extra aToken wei to absorb rounding and refunds what is unused.
+   * Approve `price + collateralPullMargin(payToken)`. Zero on Morpho.
+   */
+  async collateralPullMargin(payToken: Address): Promise<bigint> {
+    if (this.deployment.venue !== "aave") return 0n;
+    return this.client.readContract({
+      address: this.market,
+      abi: aaveExitMarketAbi,
+      functionName: "collateralPullMargin",
+      args: [payToken],
+    });
+  }
+
   async allowance(token: Address, owner: Address, spender: Address): Promise<bigint> {
     return this.client.readContract({
       address: token,

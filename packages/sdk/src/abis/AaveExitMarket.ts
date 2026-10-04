@@ -385,6 +385,25 @@ export const aaveExitMarketAbi = [
   },
   {
     "type": "function",
+    "name": "collateralPullMargin",
+    "inputs": [
+      {
+        "name": "payToken",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "debtToken",
     "inputs": [],
     "outputs": [
@@ -789,7 +808,7 @@ export const aaveExitMarketAbi = [
     ],
     "outputs": [
       {
-        "name": "",
+        "name": "redeemed",
         "type": "uint256",
         "internalType": "uint256"
       }

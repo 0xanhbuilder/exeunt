@@ -118,13 +118,15 @@ describe("build_buy_with_collateral", () => {
     vi.spyOn(aave.sdk, "session").mockResolvedValue(session());
     vi.spyOn(aave.sdk, "position").mockResolvedValue({ debt: 5n * E18, health: 2n * E18 });
     vi.spyOn(aave.sdk, "quote").mockResolvedValue(1_000_000_000n);
+    vi.spyOn(aave.sdk, "collateralPullMargin").mockResolvedValue(3n);
     const out = (await buildBuyWithCollateral(
       ctx,
       parse({ network: "kelp-replay", sessionId: 1, assets: "1", payToken: "USDC", from: ADDR.user, maxPay: "1000" }),
     )) as BuildResult;
     expect(out.transactions).toHaveLength(2);
     expect(out.transactions[0]?.to).toBe(ADDR.aUSDC);
-    expect(decodeApprove(out.transactions[0]!.data).args).toEqual([ADDR.market, 1_000_000_000n]);
+    // Approval covers the price plus the market's rounding margin, which it refunds if unused.
+    expect(decodeApprove(out.transactions[0]!.data).args).toEqual([ADDR.market, 1_000_000_003n]);
     const call = decodeMarket(out.transactions[1]!.data);
     expect(call.functionName).toBe("buyAndRepayWithCollateral");
     expect(call.args).toEqual([1n, E18, 1, 1_000_000_000n, "0x"]);

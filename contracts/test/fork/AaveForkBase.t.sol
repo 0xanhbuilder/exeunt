@@ -22,7 +22,6 @@ abstract contract AaveForkBase is Test {
     address internal constant USDG = 0xFFC95faa3d63Cde504a05B567C600B78C0b41892;
     address internal constant ETH_USD_FEED = 0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165;
     address internal constant USDC_USD_FEED = 0x0153002d20B96532C639313c2d54c3dA09109309;
-    uint256 internal constant DEFAULT_FORK_BLOCK = 315_599_168;
 
     uint8 internal constant PAY_USDG = 0;
     uint8 internal constant PAY_USDC = 1;
@@ -44,7 +43,10 @@ abstract contract AaveForkBase is Test {
             vm.skip(true);
             return;
         }
-        vm.createSelectFork(rpc, vm.envOr("ARB_SEPOLIA_FORK_BLOCK", DEFAULT_FORK_BLOCK));
+        // The public RPC is not an archive node, so fork the latest block unless a block is pinned.
+        uint256 pinned = vm.envOr("ARB_SEPOLIA_FORK_BLOCK", uint256(0));
+        if (pinned == 0) vm.createSelectFork(rpc);
+        else vm.createSelectFork(rpc, pinned);
         forked = true;
 
         address[] memory tokens = new address[](3);

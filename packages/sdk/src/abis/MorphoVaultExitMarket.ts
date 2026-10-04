@@ -690,7 +690,7 @@ export const morphoVaultExitMarketAbi = [
     ],
     "outputs": [
       {
-        "name": "",
+        "name": "redeemed",
         "type": "uint256",
         "internalType": "uint256"
       }

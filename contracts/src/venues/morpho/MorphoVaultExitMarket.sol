@@ -89,10 +89,11 @@ contract MorphoVaultExitMarket is ExitMarket, IMorphoFlashLoanCallback {
         return vault.previewRedeem(amount);
     }
 
-    function _redeemFrom(address holder, uint256 assets, address to) internal override {
+    function _redeemFrom(address holder, uint256 assets, address to) internal override returns (uint256) {
         uint256 shares = vault.previewWithdraw(assets);
         receipt.safeTransferFrom(holder, address(this), shares);
         vault.withdraw(assets, to, address(this));
+        return assets;
     }
 
     /// @dev Withdrawable now = idle vault assets plus what each adapter market can pay out.

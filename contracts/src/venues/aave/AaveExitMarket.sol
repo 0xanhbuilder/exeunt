@@ -99,9 +99,13 @@ contract AaveExitMarket is ExitMarket, IFlashLoanSimpleReceiver, IMorphoFlashLoa
         return amount;
     }
 
-    function _redeemFrom(address holder, uint256 assets, address to) internal override {
+    /// @dev Aave checks withdrawals against the rounded balance, which can be a few wei below a transfer of the
+    ///      same amount; withdraw the rounded-down value of the units received so escrow is never touched.
+    function _redeemFrom(address holder, uint256 assets, address to) internal override returns (uint256 redeemed) {
+        uint256 before = _unitsOf(address(this));
         receipt.safeTransferFrom(holder, address(this), assets);
-        pool.withdraw(underlying, assets, to);
+        redeemed = _unitsToAssets(_unitsOf(address(this)) - before);
+        if (redeemed > 0) pool.withdraw(underlying, redeemed, to);
     }
 
     function _poolStats() internal view override returns (uint256 withdrawable, uint256 supplied, uint256 borrowed) {
@@ -198,14 +202,22 @@ contract AaveExitMarket is ExitMarket, IFlashLoanSimpleReceiver, IMorphoFlashLoa
     /*                        Pay with collateral                          */
     /* ------------------------------------------------------------------ */
 
-    /// @dev The buyer approves this market once for their collateral aToken. Reverts if that pool is illiquid.
+    /// @notice Extra aToken wei pulled in flash mode to absorb Aave's rounding; the unused part is refunded at once.
+    function collateralPullMargin(address payToken) public view returns (uint256) {
+        return pool.getReserveNormalizedIncome(payToken) / RAY + 2;
+    }
+
+    /// @dev The buyer approves this market once for their collateral aToken (amount plus `collateralPullMargin`).
+    ///      Reverts if that pool is illiquid.
     function _payWithCollateral(address buyer, address payToken, uint256 amount, address to, bytes calldata)
         internal
         override
     {
         address aToken = collateralATokenOf[payToken];
         if (aToken == address(0)) revert NoCollateralToken(payToken);
-        IERC20(aToken).safeTransferFrom(buyer, address(this), amount);
+        IERC20(aToken).safeTransferFrom(buyer, address(this), amount + collateralPullMargin(payToken));
         pool.withdraw(payToken, amount, to);
+        uint256 dust = IERC20(aToken).balanceOf(address(this));
+        if (dust > 0) IERC20(aToken).safeTransfer(buyer, dust);
     }
 }

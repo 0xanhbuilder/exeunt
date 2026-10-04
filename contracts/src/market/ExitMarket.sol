@@ -193,7 +193,8 @@ abstract contract ExitMarket is ReentrancyGuardTransient {
     function _healthOf(address borrower, bytes calldata venueData) internal view virtual returns (uint256);
 
     /// @dev Pulls receipts worth `assets` from `holder`, redeems them and sends the underlying to `to`.
-    function _redeemFrom(address holder, uint256 assets, address to) internal virtual;
+    /// @return redeemed Underlying actually sent (can be a few wei below `assets` because of receipt rounding).
+    function _redeemFrom(address holder, uint256 assets, address to) internal virtual returns (uint256 redeemed);
 
     /// @dev Pool statistics: withdrawable now, total supplied, same-asset debt that can absorb receipts.
     function _poolStats() internal view virtual returns (uint256 withdrawable, uint256 supplied, uint256 borrowed);
@@ -482,12 +483,11 @@ abstract contract ExitMarket is ReentrancyGuardTransient {
     /// @notice Pulls the caller's receipts worth `assets`, redeems them and sends the underlying to `to`.
     /// @dev Works only while the pool has liquidity. Lets holders such as the Exeunt Vault recover the
     ///      underlying through one venue-agnostic call. Escrowed receipts are never touched.
-    function redeemReceipt(uint256 assets, address to) external nonReentrant returns (uint256) {
+    function redeemReceipt(uint256 assets, address to) external nonReentrant returns (uint256 redeemed) {
         if (assets == 0) revert ZeroAmount();
-        _redeemFrom(msg.sender, assets, to);
+        redeemed = _redeemFrom(msg.sender, assets, to);
         if (_unitsOf(address(this)) < totalSessionUnits) revert EscrowTouched();
-        emit ReceiptRedeemed(msg.sender, to, assets);
-        return assets;
+        emit ReceiptRedeemed(msg.sender, to, redeemed);
     }
 
     /* ------------------------------------------------------------------ */

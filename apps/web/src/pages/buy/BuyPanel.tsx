@@ -219,7 +219,8 @@ export function BuyPanel({
       const aTokenAddr = exeunt.deployment.payATokens?.[payIdx];
       if (!aTokenAddr || isAddressEqual(aTokenAddr, zeroAddress)) throw new Error("This asset cannot be paid from collateral.");
       const aToken = await exeunt.token(aTokenAddr);
-      const approve = await approvalStep(exeunt, aToken, address, exeunt.market, withATokenMargin(maxPay, 1), "so the market can pay the seller from your freed collateral");
+      const margin = await exeunt.collateralPullMargin(payToken.address);
+      const approve = await approvalStep(exeunt, aToken, address, exeunt.market, maxPay + margin, "so the market can pay the seller from your freed collateral");
       if (approve) steps.push(approve);
     }
     steps.push({ label, tx: exeunt.buyAndRepayWithCollateral(session.id, validAssets, payIdx, maxPay, venueData) });

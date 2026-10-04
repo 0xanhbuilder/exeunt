@@ -317,7 +317,9 @@ export async function buildBuyWithCollateral(ctx: ToolContext, args: BuildBuyWit
       throw new ToolError(`${p.pay.token.symbol} has no Aave collateral aToken on this market; choose another pay token.`);
     }
     const aToken = await h.sdk.token(aTokenAddress);
-    const approval = await approvalIfNeeded(h.sdk, aToken, from, h.deployment.market, p.maxPay, MARKET_LABEL);
+    // The market pulls a few extra aToken wei for Aave rounding and refunds what it does not use.
+    const margin = await h.sdk.collateralPullMargin(p.pay.token.address);
+    const approval = await approvalIfNeeded(h.sdk, aToken, from, h.deployment.market, p.maxPay + margin, MARKET_LABEL);
     const buy = h.sdk.buyAndRepayWithCollateral(p.sessionId, p.assets, p.pay.index, p.maxPay, "0x");
     return buildResult(
       h,

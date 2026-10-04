@@ -72,7 +72,7 @@ contract AaveExitMarketForkTest is AaveForkBase {
         vm.stopPrank();
 
         assertEq(repaid, assets, "external flash is free");
-        assertApproxEqAbs(debtBefore - _debt(buyer), assets, 3);
+        assertApproxEqAbs(debtBefore - _debt(buyer), assets, 100, "debt burn rounds in Aave's favour");
         assertEq(_wethLiquidity(), 0, "still exactly 0 withdrawable");
         assertEq(IERC20(USDG).balanceOf(seller), price);
         assertEq(IERC20(WETH).balanceOf(address(flash)), 20 ether, "flash returned");
@@ -87,9 +87,10 @@ contract AaveExitMarketForkTest is AaveForkBase {
         uint256 usdcCollateralBefore = IERC20(A_USDC).balanceOf(buyer);
 
         vm.startPrank(buyer);
-        IERC20(A_USDC).approve(address(market), price);
+        IERC20(A_USDC).approve(address(market), price + market.collateralPullMargin(USDC));
         (uint256 paid,) = market.buyAndRepayWithCollateral(id, assets, PAY_USDC, price, "");
         vm.stopPrank();
+        assertEq(IERC20(A_USDC).balanceOf(address(market)), 0, "rounding margin refunded");
 
         assertEq(IERC20(USDC).balanceOf(seller), paid, "seller receives USDC");
         assertApproxEqAbs(usdcCollateralBefore - IERC20(A_USDC).balanceOf(buyer), paid, 2);
@@ -132,9 +133,10 @@ contract AaveExitMarketForkTest is AaveForkBase {
         vm.stopPrank();
         vm.startPrank(bidder);
         IERC20(A_WETH).approve(address(market), type(uint256).max);
-        market.redeemReceipt(9.9 ether, bidder);
+        uint256 got = market.redeemReceipt(9.9 ether, bidder);
         vm.stopPrank();
-        assertEq(IERC20(WETH).balanceOf(bidder), 9.9 ether);
+        assertEq(IERC20(WETH).balanceOf(bidder), got);
+        assertApproxEqAbs(got, 9.9 ether, 10, "face value within Aave rounding");
     }
 
     function test_fork_withdrawUnsold_returnsATokens() public {

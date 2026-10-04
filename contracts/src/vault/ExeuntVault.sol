@@ -201,10 +201,10 @@ contract ExeuntVault is ERC20, ReentrancyGuardTransient {
         uint256 held = heldAssets(i);
         if (assets > held) assets = held;
         if (assets == 0) revert ZeroAmount();
-        strategies_[i].market.redeemReceipt(assets, address(this));
-        emit Recovered(i, msg.sender, assets);
+        uint256 redeemed = strategies_[i].market.redeemReceipt(assets, address(this));
+        emit Recovered(i, msg.sender, redeemed);
         _refreshBids();
-        return assets;
+        return redeemed;
     }
 
     /// @notice Re-sizes the vault's bids to the current capital, e.g. after a fill. Anyone can call.

@@ -29,6 +29,7 @@ export type MarketSdk = Pick<
   | "balanceOf"
   | "receiptAmountFor"
   | "allowance"
+  | "collateralPullMargin"
   | "position"
   | "venueData"
   | "planSellNow"
