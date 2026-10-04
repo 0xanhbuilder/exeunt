@@ -30,10 +30,33 @@ class Cdp {
   private nextId = 1;
   private pending = new Map<number, (msg: { result?: unknown; error?: { message: string } }) => void>();
 
+  /** JSON-RPC calls the page made to the fork proxy (UI_DEBUG_RPC=1), for diagnosing failures. */
+  readonly rpcLog: { t: number; body: string; response?: string }[] = [];
+  private rpcByRequest = new Map<string, { t: number; body: string; response?: string }>();
+
   private constructor(private readonly ws: WebSocket) {
     ws.addEventListener("message", (ev) => {
-      const msg = JSON.parse(String(ev.data)) as { id?: number; result?: unknown; error?: { message: string } };
+      const msg = JSON.parse(String(ev.data)) as {
+        id?: number;
+        result?: unknown;
+        error?: { message: string };
+        method?: string;
+        params?: { requestId: string; request?: { url: string; postData?: string } };
+      };
       if (msg.id !== undefined) this.pending.get(msg.id)?.(msg);
+      if (msg.method === "Network.requestWillBeSent" && msg.params?.request?.url.includes("/rpc/")) {
+        const entry = { t: Date.now(), body: msg.params.request.postData ?? "" };
+        this.rpcLog.push(entry);
+        this.rpcByRequest.set(msg.params.requestId, entry);
+      }
+      if (msg.method === "Network.loadingFinished" && msg.params && this.rpcByRequest.has(msg.params.requestId)) {
+        const entry = this.rpcByRequest.get(msg.params.requestId);
+        void this.send<{ body: string }>("Network.getResponseBody", { requestId: msg.params.requestId })
+          .then((r) => {
+            if (entry) entry.response = r.body;
+          })
+          .catch(() => undefined);
+      }
     });
   }
 
@@ -98,8 +121,16 @@ class Page {
     await this.waitFor(this.q(testid), timeoutMs, `[data-testid="${testid}"]`);
   }
 
+  /** Transaction hashes on screen before the last click; a new action counts as done only once they change. */
+  private hashesBefore = "";
+
+  private txHashes(): Promise<string> {
+    return this.eval<string>(`[...document.querySelectorAll('[data-testid="tx-hash"]')].map((e) => e.getAttribute("data-hash")).join(",")`);
+  }
+
   async click(testid: string, timeoutMs = 30_000): Promise<void> {
     await this.waitFor(`${this.q(testid)} && !${this.q(testid)}.disabled`, timeoutMs, `enabled ${testid}`);
+    this.hashesBefore = await this.txHashes();
     await this.eval(`${this.q(testid)}.click()`);
   }
 
@@ -108,6 +139,7 @@ class Page {
     const sel = `document.querySelector('[data-testid^="${prefix}"]')`;
     await this.waitFor(sel, timeoutMs, `${prefix}*`);
     const id = await this.eval<string>(`${sel}.getAttribute("data-testid")`);
+    this.hashesBefore = await this.txHashes();
     await this.eval(`${sel}.click()`);
     return id;
   }
@@ -127,13 +159,18 @@ class Page {
     return this.eval<string>(`(${this.q(testid)}?.textContent ?? "").trim()`);
   }
 
-  /** Waits for the transaction panel to report every step confirmed, or fails with its message. */
+  /**
+   * Waits for the transaction panel to report every step of the action just clicked as confirmed, or fails with
+   * its message. The panel keeps the previous action's "sent" outcome until the new one starts, so the hashes
+   * must also differ from those shown before the click.
+   */
   async waitTxSent(timeoutMs = 240_000): Promise<string> {
     const outcome = `${this.q("tx-status")}?.getAttribute("data-outcome")`;
     const t0 = Date.now();
     while (Date.now() - t0 < timeoutMs) {
       const o = await this.eval<string | null>(outcome).catch(() => null);
-      if (o === "sent") return this.eval<string>(`[...document.querySelectorAll('[data-testid="tx-hash"]')].map((e) => e.getAttribute("data-hash")).join(",")`);
+      const hashes = await this.txHashes().catch(() => this.hashesBefore);
+      if (o === "sent" && hashes !== this.hashesBefore) return hashes;
       if (o === "failed") throw new Error(`transaction failed: ${await this.text("tx-message")} ${await this.eval<string>(`[...document.querySelectorAll(".tx-step-error")].map((e) => e.textContent).join(" | ")`)}`);
       await sleep(1000);
     }
@@ -194,6 +231,7 @@ async function launch(): Promise<{ chrome: ChildProcess; cdp: Cdp }> {
   const cdp = await Cdp.connect(wsUrl);
   await cdp.send("Page.enable");
   await cdp.send("Runtime.enable");
+  if (process.env.UI_DEBUG_RPC) await cdp.send("Network.enable");
   return { chrome, cdp };
 }
 
@@ -356,6 +394,7 @@ async function main(): Promise<void> {
         const base = join(REPO_ROOT, "reports", `ui-failure-${network}`);
         mkdirSync(join(REPO_ROOT, "reports"), { recursive: true });
         await page.capture(base).catch(() => undefined);
+        if (process.env.UI_DEBUG_RPC) writeFileSync(`${base}-rpc.json`, JSON.stringify(cdp.rpcLog.slice(-60), null, 1));
         log(`  captured ${base}.png / .txt`);
       }
       results.push({ network, mode: "live", steps: r.steps, startedAt: new Date(t0).toISOString(), ms: Date.now() - t0 });

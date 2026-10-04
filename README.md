@@ -6,6 +6,10 @@ When a lending pool reaches 100% utilization, depositors cannot withdraw: every 
 
 Exeunt lets stuck depositors sell their deposit receipts (aWETH on Aave, Earn vault shares on Morpho) at a discount, and get paid immediately, without taking a single unit of liquidity out of the pool.
 
+**Live demo: [exeunt.space](https://exeunt.space)** · API: `https://api.exeunt.space` · MCP: `https://api.exeunt.space/mcp`
+
+The two scenario forks are hosted too: pick *Kelp replay* or *Earn bank-run* in the network selector, connect the demo wallet and use "Get demo funds".
+
 ## How it works
 
 The natural buyer of a stuck receipt is someone who owes the same asset. Exeunt makes the trade atomic:
@@ -51,8 +55,8 @@ Exeunt also publishes each pool's **exit capacity** on-chain (withdrawable now, 
 |---|---|---|---|
 | Arbitrum Sepolia | Aave V3 (testnet market) | aWETH | Live |
 | Robinhood Testnet | Morpho Blue + Vault V2, deployed by us (no Morpho on that testnet) | Earn USDG vault shares | Live |
-| Kelp replay | Arbitrum One fork at block 453,918,025 (18 Apr 2026, WETH at 100%) | aWETH | Local fork |
-| Earn bank-run | Robinhood Chain fork against the live Steakhouse USDG vault | Earn USDG vault shares | Local fork |
+| Kelp replay | Arbitrum One fork at block 453,918,025 (18 Apr 2026, WETH at 100%) | aWETH | Hosted fork |
+| Earn bank-run | Robinhood Chain fork at block 79,876,918 against the Steakhouse USDG vault | Earn USDG vault shares | Hosted fork |
 
 ### Arbitrum Sepolia
 
@@ -113,7 +117,7 @@ MCP server for an agent (stdio):
 { "mcpServers": { "exeunt": { "command": "node", "args": ["packages/mcp/dist/index.js"] } } }
 ```
 
-The backend also serves it over Streamable HTTP at `POST /mcp`.
+The hosted backend serves the same server over Streamable HTTP at `https://api.exeunt.space/mcp`.
 
 Deploying:
 
@@ -125,13 +129,23 @@ node script/fix-deploy-block.mjs arbitrum-sepolia 421614
 
 On Robinhood Chain (an Arbitrum Orbit chain), pass `--gas-estimate-multiplier 300`: forge's local gas estimate does not include the L1 data fee, and small transactions otherwise run out of gas.
 
+Hosting (GCP VM behind a Cloudflare Tunnel; the server holds no private keys):
+
+```bash
+CF_API_TOKEN=... node infra/cloudflare-tunnel.mjs   # tunnel, hostnames and DNS for exeunt.space
+bash infra/deploy.sh                                 # build, ship and provision the VM
+```
+
+The VM runs both scenario forks under systemd on localhost; the public reaches them only through the backend's JSON-RPC proxy (`/rpc/<network>`), which forwards standard methods and signed transactions and blocks anvil's cheat methods. Forks reset to their seeded state once a day.
+
 ## Testing
 
 ```bash
 cd contracts && forge test                                  # unit, fuzz, invariant, fork
 npm test                                                    # SDK, MCP, backend, web
 npm run e2e -w @exeunt/e2e -- --network=all                 # full flows on four forks, report in reports/
-npm run e2e -w @exeunt/e2e -- --network=arbitrum-sepolia --live   # same flows with real testnet funds
+npm run e2e -w @exeunt/e2e -- --network=arbitrum-sepolia,robinhood-testnet --live   # real testnet funds
+npm run ui -w @exeunt/e2e -- --url=https://exeunt.space      # drives the deployed web app in headless Chrome
 ```
 
 The end-to-end runner starts its own forks, deploys with the Foundry script, creates positions, and runs every flow through the SDK with signed transactions, checking balances, debt, health and the pool's withdrawable liquidity at every step. Results are in [docs/test-report.md](docs/test-report.md).
