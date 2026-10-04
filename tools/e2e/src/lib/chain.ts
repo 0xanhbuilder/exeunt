@@ -104,12 +104,15 @@ export async function send(
   } catch (e) {
     throw new Error(`simulation failed for "${tx.description}" from ${actor.name}: ${explain(e)}`);
   }
+  // Execution can take costlier branches than the estimate saw (e.g. Aave disabling collateral), so add 30%.
+  const estimate = await sdk.client.estimateGas({ account: actor.address, to: tx.to, data: tx.data, value: tx.value });
   const hash = await actor.wallet.sendTransaction({
     account: actor.account,
     chain: actor.wallet.chain,
     to: tx.to,
     data: tx.data,
     value: tx.value,
+    gas: (estimate * 13n) / 10n,
   });
   r.noteTx(hash);
   const receipt = await sdk.client.waitForTransactionReceipt({ hash });

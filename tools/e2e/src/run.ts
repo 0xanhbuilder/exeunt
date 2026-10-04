@@ -1,12 +1,14 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import type { Hex } from "viem";
 import { join } from "node:path";
 import type { ChildProcess } from "node:child_process";
 import { ExeuntClient, NETWORKS, parseDeployment, type NetworkKey } from "@exeunt/sdk";
 import { kitContext } from "@exeunt/forkkit";
-import { deployToFork, forkSpecs, readDotEnv, REPO_ROOT, startAnvil, type ForkSpec } from "./lib/env.js";
+import { CONTRACTS_DIR, deployToFork, forkSpecs, readDotEnv, REPO_ROOT, startAnvil, type ForkSpec } from "./lib/env.js";
 import { makeActors, makeClients } from "./lib/chain.js";
 import { Recorder, toMarkdown, type ScenarioResult } from "./lib/report.js";
 import { aaveScenario } from "./scenarios/aave.js";
+import { liveAaveScenario } from "./scenarios/live-aave.js";
 import { morphoScenario } from "./scenarios/morpho.js";
 
 // Top Steakhouse USDG share holders on Robinhood Chain, found by scanning the vault's Transfer logs.
@@ -23,11 +25,43 @@ const STEAKHOUSE_HOLDERS = [
 
 const ALL: NetworkKey[] = ["arbitrum-sepolia", "kelp-replay", "robinhood-testnet", "earn-bank-run"];
 
-function parseArgs(): { networks: NetworkKey[] } {
+function parseArgs(): { networks: NetworkKey[]; mode: "fork" | "live" } {
   const arg = process.argv.find((a) => a.startsWith("--network="))?.split("=")[1] ?? "all";
+  const mode = process.argv.includes("--live") ? "live" : "fork";
   const networks = arg === "all" ? ALL : (arg.split(",") as NetworkKey[]);
   for (const n of networks) if (!ALL.includes(n)) throw new Error(`unknown network ${n}`);
-  return { networks };
+  return { networks, mode };
+}
+
+/** Live testnet run with the funded deployer key and the second test key from .env. */
+async function runLive(network: NetworkKey, env: Record<string, string>): Promise<ScenarioResult> {
+  const t0 = Date.now();
+  const r = new Recorder(network, log);
+  const result: ScenarioResult = { network, mode: "live", steps: r.steps, startedAt: new Date().toISOString(), ms: 0 };
+  log(`
+== ${network} (live)`);
+  try {
+    if (network !== "arbitrum-sepolia") throw new Error(`live run implemented for arbitrum-sepolia only`);
+    const file = join(CONTRACTS_DIR, "deployments", `${network}.json`);
+    if (!existsSync(file)) throw new Error(`no live deployment at ${file}`);
+    const deployment = parseDeployment(JSON.parse(readFileSync(file, "utf8")));
+    result.deployment = deployment as unknown as Record<string, unknown>;
+    const rpcUrl = env.ARB_SEPOLIA_RPC ?? NETWORKS[network].defaultRpcUrl;
+    const chain = NETWORKS[network].chain;
+    const { publicClient } = makeClients(rpcUrl, chain);
+    result.forkBlock = String(await publicClient.getBlockNumber());
+    const keys = [env.PRIVATE_KEY, env.E2E_BUYER_KEY] as Hex[];
+    if (!keys[0] || !keys[1]) throw new Error("PRIVATE_KEY and E2E_BUYER_KEY must be set in .env");
+    const [seller, buyer] = makeActors(["seller", "buyer"], rpcUrl, chain, keys);
+    if (!seller || !buyer) throw new Error("actors");
+    await liveAaveScenario(r, new ExeuntClient(deployment, publicClient), { seller, buyer });
+  } catch (e) {
+    r.steps.push({ name: "runner", ok: false, ms: 0, details: {}, txs: [], error: e instanceof Error ? e.message : String(e) });
+    log(`  ✗ runner: ${e instanceof Error ? e.message : String(e)}`);
+  } finally {
+    result.ms = Date.now() - t0;
+  }
+  return result;
 }
 
 const log = (line: string) => process.stdout.write(`${line}\n`);
@@ -105,23 +139,23 @@ async function runFork(spec: ForkSpec): Promise<ScenarioResult> {
 }
 
 async function main(): Promise<void> {
-  const { networks } = parseArgs();
+  const { networks, mode } = parseArgs();
   const env = readDotEnv();
   const specs = forkSpecs(env);
   const startedAt = new Date().toISOString();
   const results: ScenarioResult[] = [];
-  for (const n of networks) results.push(await runFork(specs[n]));
+  for (const n of networks) results.push(mode === "live" ? await runLive(n, env) : await runFork(specs[n]));
 
   const dir = join(REPO_ROOT, "reports");
   mkdirSync(dir, { recursive: true });
   const stamp = startedAt.replace(/[:.]/g, "-");
   const json = JSON.stringify(results, (_k, v) => (typeof v === "bigint" ? v.toString() : v), 2);
-  writeFileSync(join(dir, `e2e-${stamp}.json`), json);
-  writeFileSync(join(dir, `e2e-${stamp}.md`), toMarkdown(results, startedAt));
-  writeFileSync(join(dir, "e2e-latest.md"), toMarkdown(results, startedAt));
+  writeFileSync(join(dir, `e2e-${mode}-${stamp}.json`), json);
+  writeFileSync(join(dir, `e2e-${mode}-${stamp}.md`), toMarkdown(results, startedAt));
+  writeFileSync(join(dir, `e2e-${mode}-latest.md`), toMarkdown(results, startedAt));
   const steps = results.flatMap((x) => x.steps);
   const failed = steps.filter((s) => !s.ok).length;
-  log(`\n${steps.length - failed}/${steps.length} steps passed. Report: reports/e2e-${stamp}.md`);
+  log(`\n${steps.length - failed}/${steps.length} steps passed. Report: reports/e2e-${mode}-${stamp}.md`);
   process.exitCode = failed === 0 ? 0 : 1;
 }
 
