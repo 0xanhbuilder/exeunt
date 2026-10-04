@@ -148,4 +148,31 @@ contract AaveExitMarketForkTest is AaveForkBase {
         assertGe(IERC20(A_WETH).balanceOf(seller), before, "all receipts returned");
         assertEq(market.totalSessionUnits(), 0);
     }
+
+    function test_fork_flashCallbacks_rejectSpoofedCalls() public {
+        vm.expectRevert(AaveExitMarket.UnexpectedCallback.selector);
+        market.executeOperation(WETH, 1, 0, address(market), "");
+        vm.prank(address(POOL));
+        vm.expectRevert(AaveExitMarket.UnexpectedCallback.selector);
+        market.executeOperation(WETH, 1, 0, address(this), "");
+        vm.expectRevert(AaveExitMarket.UnexpectedCallback.selector);
+        market.onMorphoFlashLoan(1, "");
+    }
+
+    function test_fork_constructor_rejectsMismatchedCollateralAToken() public {
+        address[] memory tokens = new address[](2);
+        tokens[0] = USDC;
+        tokens[1] = WETH;
+        address[] memory aTokens = new address[](2);
+        aTokens[0] = A_WETH; // aWETH is not USDC's aToken
+        vm.expectRevert(ExitMarket.BadParams.selector);
+        new AaveExitMarket(POOL, A_WETH, V_WETH, prices, tokens, aTokens, IMorpho(address(0)));
+    }
+
+    function test_fork_flashCapacity_andReceiptValue() public view {
+        (uint256 aaveChunk, uint256 extChunk) = market.flashCapacity();
+        assertGt(aaveChunk, 0);
+        assertEq(extChunk, 0);
+        assertEq(market.receiptValue(1 ether), 1 ether);
+    }
 }
