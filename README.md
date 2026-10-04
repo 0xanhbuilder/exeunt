@@ -1,3 +1,7 @@
+## DEMO VIDEO: https://youtu.be/QcMjSAaNKxg?si=EhABv3iZXN9WuoJu
+## PITCH VIDEO: https://youtu.be/CYgqwqevEIk?si=H0b4qLboRar4S-sr
+
+
 # 1. Introduction
 
 Exeunt is an exit market for frozen lending pools on Arbitrum and Robinhood Chain. When a pool hits 100% utilization and depositors cannot withdraw, Exeunt lets them sell their deposit receipt (aWETH on Aave V3, Earn vault shares on Morpho) at a discount and get paid immediately, without taking a single unit of liquidity out of the pool.
