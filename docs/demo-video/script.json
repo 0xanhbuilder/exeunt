@@ -1,0 +1,340 @@
+{
+  "say": {
+    "Exeunt": "Ex-ee-unt",
+    "Aave": "Ah-vay",
+    "USDG": "USDG",
+    "USDC": "USDC",
+    "MCP": "MCP",
+    "SDK": "SDK",
+    "exeunt.space": "ex-ee-unt dot space"
+  },
+  "beats": [
+    {
+      "id": "intro",
+      "label": "Introduction",
+      "kind": "mg",
+      "lines": [
+        { "text": "Hello everyone, welcome to the Exeunt demo." },
+        { "text": "Exeunt is an exit market for frozen lending pools, on Arbitrum and Robinhood Chain." },
+        { "text": "When borrowers take all of a pool's liquidity, depositors cannot withdraw, sometimes for days." },
+        { "text": "Exeunt lets them sell their stuck deposit to borrowers, bidders or a shared vault, and get paid right away." },
+        { "text": "And it does that without taking any liquidity out of the pool." }
+      ]
+    },
+    {
+      "id": "setup",
+      "label": "Preparation",
+      "kind": "mg",
+      "lines": [
+        { "text": "For this demo, we use the web app at exeunt.space, on the Kelp replay network." },
+        {
+          "text": "It is a fork of Arbitrum One on 18 April 2026, the day the Aave WETH pool hit 100% utilization.",
+          "say": "It is a fork of Arbitrum One on the eighteenth of April, twenty twenty-six, the day the Aave WETH pool hit one hundred percent utilization."
+        },
+        { "text": "It runs against Aave's real contracts and real state." },
+        { "text": "I have prepared two browser profiles, both using the built-in demo wallet." },
+        { "text": "Alice is a depositor, with 10 WETH stuck in the pool.", "say": "Alice is a depositor, with ten WETH stuck in the pool." },
+        {
+          "text": "Bob borrowed 5 WETH against USDC, and also holds spare WETH and stablecoins to bid with.",
+          "say": "Bob borrowed five WETH against USDC, and also holds spare WETH and stablecoins to bid with."
+        },
+        { "text": "Their positions come from the faucet on this fork, and anyone can get the same with one click." }
+      ]
+    },
+    {
+      "id": "capacity",
+      "label": "Exit capacity",
+      "kind": "live",
+      "profile": "alice",
+      "page": "#/",
+      "ready": "capacity-row-kelp-replay",
+      "lines": [
+        { "text": "This is the Overview.", "do": [{ "scroll": "capacity-row-kelp-replay" }] },
+        {
+          "text": "Every pool shows its exit capacity, read straight from the chain.",
+          "do": [{ "point": "capacity-row-kelp-replay", "label": "Read on-chain, no permission" }]
+        },
+        {
+          "text": "Utilization is at 100%, and nothing is withdrawable.",
+          "say": "Utilization is at one hundred percent, and nothing is withdrawable.",
+          "do": [{ "point": "[data-testid=\"capacity-row-kelp-replay\"] [data-testid=\"capacity-utilization\"]", "label": "100% utilized" }, { "point": "[data-testid=\"capacity-row-kelp-replay\"] [data-testid=\"capacity-withdrawable\"]", "label": "Nothing withdrawable", "keep": true, "below": true }]
+        },
+        {
+          "text": "But borrowers of the same asset owe nearly 150,000 WETH, far more than what is stuck.",
+          "say": "But borrowers of the same asset owe nearly one hundred fifty thousand WETH, far more than what is stuck.",
+          "do": [{ "point": "[data-testid=\"capacity-row-kelp-replay\"] [data-testid=\"capacity-borrowers\"]", "label": "Same-asset debt" }]
+        },
+        { "text": "And that debt is where the exit comes from." },
+        {
+          "text": "Curators can also set an alert here, and get a signed webhook when utilization crosses their threshold.",
+          "do": [{ "scroll": "alert-threshold" }, { "point": "alert-threshold", "label": "Alert threshold" }]
+        }
+      ]
+    },
+    {
+      "id": "auction",
+      "label": "Open an auction",
+      "kind": "live",
+      "profile": "alice",
+      "page": "#/sell",
+      "ready": "sell-position-balance",
+      "lines": [
+        { "text": "Alice wants out.", "do": [{ "point": "sell-position", "label": "10 WETH stuck" }] },
+        {
+          "text": "She could sell into standing bids right away, but first she runs a Dutch auction, so she gives away only as much discount as she must.",
+          "do": [{ "point": "sell-mode-now" }, { "atWord": "auction", "click": "sell-mode-auction" }]
+        },
+        {
+          "text": "It starts at 0.5%, rises by 0.25% every 15 minutes up to 5%, and it never goes back down.",
+          "say": "It starts at half a percent, rises by a quarter of a percent every fifteen minutes up to five percent, and it never goes back down.",
+          "do": [{ "scroll": "auction-path" }, { "point": "auction-path", "label": "Discount only rises", "below": true }]
+        },
+        {
+          "text": "By default she accepts any of the market's payment assets: USDG, USDC, WETH and wstETH.",
+          "say": "By default she accepts any of the market's payment assets: USDG, USDC, WETH, and wrapped staked ETH.",
+          "do": [{ "point": "div:has(> [data-testid=\"sell-pay-USDG\"])", "label": "Accepted assets" }]
+        },
+        {
+          "text": "She enters 4 WETH, and opens the auction.",
+          "say": "She enters four WETH, and opens the auction.",
+          "do": [{ "clear": true }, { "type": "sell-amount", "value": "4" }, { "atWord": "opens", "click": "sell-submit" }, { "tx": true }]
+        },
+        {
+          "text": "Her receipts are held in escrow, and she can take back the unsold part at any time.",
+          "do": [{ "scroll": "session-row-{sid}" }, { "point": "session-row-{sid}", "label": "Live auction" }]
+        }
+      ]
+    },
+    {
+      "id": "buy",
+      "label": "Buy and repay",
+      "kind": "live",
+      "profile": "bob",
+      "page": "#/buy",
+      "ready": "buy-select-{sid}",
+      "lines": [
+        { "text": "Bob owes 5 WETH.", "say": "Bob owes five WETH.", "do": [{ "point": "buy-debt", "label": "Bob's debt" }] },
+        {
+          "text": "On the Buy page he sees Alice's auction, and buys 1 WETH of her receipts, paying in USDG.",
+          "say": "On the Buy page he sees Alice's auction, and buys one WETH of her receipts, paying in USDG.",
+          "do": [{ "clear": true }, { "click": "buy-select-{sid}" }, { "type": "buy-amount", "value": "1" }, { "point": "buy-pay-token-USDG" }]
+        },
+        {
+          "text": "Before anything is sent, the panel shows what he pays, and what he saves.",
+          "do": [{ "scroll": "buy-you-pay" }, { "point": "buy-you-pay", "label": "He pays" }, { "point": "buy-savings", "label": "He saves", "keep": true }]
+        },
+        {
+          "text": "In one transaction, Exeunt flash-borrows WETH, repays 1 WETH of Bob's debt, uses that new liquidity to redeem Alice's receipts, and returns the loan.",
+          "say": "In one transaction, Exeunt flash-borrows WETH, repays one WETH of Bob's debt, uses that new liquidity to redeem Alice's receipts, and returns the loan.",
+          "insert": "mechanism",
+          "do": [{ "clear": true }, { "click": "buy-submit" }, { "tx": true }]
+        },
+        {
+          "text": "Bob's debt drops by 1 WETH, and he pays half a percent less.",
+          "say": "Bob's debt drops by one WETH, and he pays half a percent less.",
+          "do": [{ "scroll": "buy-debt" }, { "point": "buy-debt", "label": "5 → 4 WETH" }]
+        },
+        { "text": "Alice is paid at once, and the pool's withdrawable liquidity is exactly what it was before." }
+      ]
+    },
+    {
+      "id": "flash",
+      "label": "Flash mode",
+      "kind": "live",
+      "profile": "bob",
+      "page": "#/buy",
+      "ready": "buy-select-{sid}",
+      "lines": [
+        { "text": "What if a borrower has no cash?", "do": [{ "click": "buy-select-{sid}" }, { "type": "buy-amount", "value": "1" }] },
+        {
+          "text": "With flash mode, Bob pays with his collateral instead.",
+          "do": [{ "atWord": "flash", "click": "buy-pay-flash" }, { "point": "buy-flash-token-USDC", "label": "USDC collateral" }]
+        },
+        {
+          "text": "The market repays his debt first, which frees part of his USDC collateral, and that collateral pays Alice.",
+          "say": "The market repays his debt first, which frees part of his USDC collateral, and that collateral pays Alice.",
+          "do": [{ "scroll": "buy-flash-collateral" }, { "point": "buy-flash-collateral", "label": "Collateral that pays Alice" }]
+        },
+        {
+          "text": "Bob needs nothing up front, and his health factor can only go up: if it would go down, the transaction reverts.",
+          "do": [{ "point": "buy-flash-cash", "label": "No cash" }, { "atWord": "health", "point": "buy-flash-health", "label": "Health factor up", "keep": true }]
+        },
+        {
+          "text": "One click runs the one-time approval, then the purchase.",
+          "do": [{ "clear": true }, { "click": "buy-submit" }, { "tx": true }]
+        },
+        {
+          "text": "His debt goes from 4 to 3 WETH.",
+          "say": "His debt goes from four to three WETH.",
+          "do": [{ "scroll": "buy-debt" }, { "point": "buy-debt", "label": "4 → 3 WETH" }]
+        }
+      ]
+    },
+    {
+      "id": "bids",
+      "label": "Limit bids",
+      "kind": "live",
+      "profile": "bob",
+      "page": "#/earn",
+      "ready": "earn-tab-bids",
+      "lines": [
+        { "text": "Not every buyer borrows.", "do": [{ "click": "earn-tab-bids" }] },
+        {
+          "text": "Treasuries and market makers can post limit bids before any freeze: they escrow the funds, and set the minimum discount they accept.",
+          "do": [{ "type": "bid-amount", "value": "2" }, { "type": "bid-discount", "value": "2" }, { "click": "bid-escrow-WETH" }, { "point": "bid-escrow-needed", "label": "Escrowed up front" }]
+        },
+        {
+          "text": "Only escrowed funds count, every bid is public, and a bid can be cancelled at any time.",
+          "do": [{ "clear": true }, { "click": "bid-submit" }, { "tx": true }, { "point": "bid-cancel-{bid}", "label": "Cancel any time" }]
+        }
+      ]
+    },
+    {
+      "id": "vault",
+      "label": "Exeunt Vault",
+      "kind": "live",
+      "profile": "bob",
+      "page": "#/earn",
+      "ready": "earn-tab-vault",
+      "lines": [
+        { "text": "For passive capital, there is the Exeunt Vault.", "do": [{ "click": "earn-tab-vault" }, { "point": "vault-section" }] },
+        {
+          "text": "You deposit once, and the vault bids by rules fixed at deployment.",
+          "do": [{ "clear": true }, { "click": "vault-mode-deposit" }, { "type": "vault-deposit-amount", "value": "5" }]
+        },
+        {
+          "text": "At least a 3% discount, and at most 20% of its capital per receipt.",
+          "say": "At least a three percent discount, and at most twenty percent of its capital per receipt.",
+          "do": [{ "point": "vault-bid", "label": "Standing bid" }]
+        },
+        { "text": "Its capital stays out of the pool it protects.", "do": [{ "clear": true }, { "click": "vault-deposit-submit" }, { "tx": true }] },
+        {
+          "text": "When the pool refills, anyone can trigger its recovery, and the discount becomes the depositors' profit.",
+          "do": [{ "point": "vault-recover", "label": "Anyone can trigger" }]
+        },
+        { "text": "Depositors can leave at any time.", "do": [{ "clear": true }, { "click": "vault-mode-withdraw" }, { "point": "vault-out-now", "label": "Paid out now" }] }
+      ]
+    },
+    {
+      "id": "sellnow",
+      "label": "Sell now",
+      "kind": "live",
+      "profile": "alice",
+      "page": "#/sell",
+      "ready": "sell-position-balance",
+      "lines": [
+        { "text": "Back to Alice.", "do": [{ "point": "sell-position" }] },
+        {
+          "text": "She does not want to wait for the auction any more, so she sells 3 WETH now.",
+          "say": "She does not want to wait for the auction any more, so she sells three WETH now.",
+          "do": [{ "clear": true }, { "click": "sell-mode-now" }, { "type": "sell-amount", "value": "3" }]
+        },
+        {
+          "text": "The preview fills the smallest discounts first, across limit bids and the vault.",
+          "do": [{ "scroll": "sell-preview" }, { "point": "sell-preview", "label": "Best price first" }]
+        },
+        {
+          "text": "Each bid pays from its own escrow, in its own asset, and she is paid in the same transaction.",
+          "do": [{ "clear": true }, { "click": "sell-submit" }, { "tx": true }, { "point": "tx-status", "label": "Paid" }]
+        }
+      ]
+    },
+    {
+      "id": "unsold",
+      "label": "Take back the unsold rest",
+      "kind": "live",
+      "profile": "alice",
+      "page": "#/sell",
+      "ready": "session-withdraw-{sid}",
+      "lines": [
+        {
+          "text": "Bob bought 2 of the 4 WETH in Alice's auction.",
+          "say": "Bob bought two of the four WETH in Alice's auction.",
+          "do": [{ "scroll": "session-row-{sid}" }, { "point": "session-sold-{sid}", "label": "2 of 4 sold" }]
+        },
+        {
+          "text": "She can take back the other two whenever she wants, with no waiting period; what already sold stays sold.",
+          "do": [{ "clear": true }, { "click": "session-withdraw-{sid}" }, { "tx": true }]
+        }
+      ]
+    },
+    {
+      "id": "frozen",
+      "label": "Frozen collateral",
+      "kind": "live",
+      "profile": "alice",
+      "page": "#/frozen-collateral",
+      "ready": "frozen-direct",
+      "lines": [
+        { "text": "One more case: Aave borrowers whose collateral is the frozen asset.", "do": [{ "point": "frozen-collateral", "label": "Frozen aWETH collateral" }] },
+        { "text": "They cannot withdraw it, so they cannot use it to repay debt, or move it." },
+        { "text": "This page first checks whether a direct withdrawal works.", "do": [{ "point": "frozen-direct", "label": "Blocked" }] },
+        {
+          "text": "When it is blocked, Exeunt sells the collateral into escrowed bids to repay debt, or swaps it for new collateral, in a single transaction.",
+          "do": [{ "point": "frozen-repay", "label": "Repay debt" }, { "atWord": "swaps", "point": "frozen-swap", "label": "Swap collateral", "keep": true }]
+        }
+      ]
+    },
+    {
+      "id": "robinhood",
+      "label": "Robinhood Chain",
+      "kind": "live",
+      "profile": "alice",
+      "page": "#/",
+      "ready": "network-selector",
+      "lines": [
+        {
+          "text": "The same exit works on Robinhood Chain, an Arbitrum Orbit chain, for Morpho Earn vaults, with Paxos USDG as the main payment asset.",
+          "say": "The same exit works on Robinhood Chain, an Arbitrum Orbit chain, for Morpho Earn vaults, with Paxos USDG as the main payment asset.",
+          "do": [{ "click": "network-selector" }, { "point": "network-option-earn-bank-run" }, { "atWord": "Paxos", "click": "network-option-earn-bank-run" }]
+        },
+        {
+          "text": "This is the Earn bank-run network: a fork of Robinhood Chain where the Steakhouse USDG vault was drained.",
+          "say": "This is the Earn bank-run network: a fork of Robinhood Chain where the Steakhouse USDG vault was drained.",
+          "do": [{ "scroll": "capacity-row-earn-bank-run" }, { "point": "capacity-row-earn-bank-run", "label": "Drained: 100% utilized" }]
+        },
+        { "text": "Same pages, same flows.", "do": [{ "clear": true }, { "click": "nav-sell" }] },
+        {
+          "text": "On Morpho, flash mode uses a signed authorization instead of an approval, and revokes it in the same transaction.",
+          "insert": "morpho"
+        }
+      ]
+    },
+    {
+      "id": "developers",
+      "label": "Developers and AI agents",
+      "kind": "live",
+      "profile": "alice",
+      "page": "#/developers",
+      "ready": "dev-mcp",
+      "lines": [
+        { "text": "Everything you saw is also open to other apps, and to AI agents." },
+        {
+          "text": "On-chain reads, a TypeScript SDK, webhooks, and an MCP server with 18 tools.",
+          "say": "On-chain reads, a TypeScript SDK, webhooks, and an MCP server with eighteen tools.",
+          "do": [{ "point": "#h-reads" }, { "atWord": "TypeScript", "point": "#h-sdk" }, { "atWord": "webhooks", "point": "#h-hook" }, { "atWord": "server", "scroll": "dev-mcp" }, { "point": "#h-mcp" }]
+        },
+        {
+          "text": "The MCP server never holds keys: it returns unsigned transactions, and the user's or the agent's wallet signs them.",
+          "say": "The MCP server never holds keys: it returns unsigned transactions, and the user's or the agent's wallet signs them.",
+          "do": [{ "point": "dev-mcp", "label": "Never holds keys" }]
+        },
+        {
+          "text": "Here, an MCP client asks for the exit capacity of the Kelp replay pool, and gets it straight from the chain.",
+          "say": "Here, an MCP client asks for the exit capacity of the Kelp replay pool, and gets it straight from the chain.",
+          "insert": "mcp"
+        }
+      ]
+    },
+    {
+      "id": "outro",
+      "label": "Outro",
+      "kind": "mg",
+      "lines": [
+        { "text": "That's all for our demo." },
+        { "text": "With Exeunt, a frozen pool no longer means a locked exit." },
+        { "text": "Thanks for watching!" }
+      ]
+    }
+  ]
+}
