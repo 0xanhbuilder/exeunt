@@ -11,8 +11,9 @@ import { createFaucetModule, type FaucetServiceOptions, type ForkkitChainPort, t
 import { createHealthModule } from "./modules/health/index.js";
 import { createMcpModule } from "./modules/mcp/index.js";
 import { createNetworksModule, type NetworksChainPort } from "./modules/networks/index.js";
+import { createRpcModule, type RpcChainPort, type RpcUpstream } from "./modules/rpc/index.js";
 
-export type AppChainPort = NetworksChainPort & CapacityChainPort & ForkkitChainPort;
+export type AppChainPort = NetworksChainPort & CapacityChainPort & ForkkitChainPort & RpcChainPort;
 
 export interface AppDeps {
   db: Db;
@@ -26,6 +27,7 @@ export interface AppDeps {
   kits?: KitRunner;
   webhook?: WebhookSender;
   faucetOptions?: Partial<FaucetServiceOptions>;
+  rpcUpstream?: RpcUpstream;
   now?: () => number;
 }
 
@@ -51,6 +53,7 @@ export function createApp(deps: AppDeps) {
   app.use(alerts.router);
   app.use(faucet.router);
   app.use(createMcpModule({ chain: deps.mcpChain }).router);
+  app.use(createRpcModule({ chain, upstream: deps.rpcUpstream }).router);
 
   app.use(notFound());
   app.use(errorHandler(logger));

@@ -31,6 +31,7 @@ beforeEach(() => {
     corsOrigin: "*",
     webhook,
     kits,
+    rpcUpstream: { send: vi.fn().mockResolvedValue({ jsonrpc: "2.0", id: 1, result: "0xa4b1" }) },
     now: () => clock.now,
   });
   app = built.app;
@@ -220,5 +221,26 @@ describe("MCP over Streamable HTTP", () => {
     const res = await request(app).get("/mcp").expect(405);
     expect(res.headers.allow).toBe("POST");
     await request(app).delete("/mcp").expect(405);
+  });
+});
+
+describe("fork RPC proxy", () => {
+  const body = (method: string) => ({ jsonrpc: "2.0", id: 1, method, params: [] });
+
+  it("forwards allowed methods on fork networks", async () => {
+    const res = await request(app).post("/rpc/kelp-replay").send(body("eth_chainId")).expect(200);
+    expect(res.body.result).toBe("0xa4b1");
+  });
+
+  it("blocks anvil cheat methods and node-signed transactions", async () => {
+    for (const method of ["anvil_setBalance", "eth_sendTransaction"]) {
+      const res = await request(app).post("/rpc/kelp-replay").send(body(method)).expect(200);
+      expect(res.body.error.code).toBe(-32601);
+    }
+  });
+
+  it("is not offered for live networks or unknown ones", async () => {
+    await request(app).post("/rpc/arbitrum-sepolia").send(body("eth_chainId")).expect(404);
+    await request(app).post("/rpc/mainnet").send(body("eth_chainId")).expect(400);
   });
 });

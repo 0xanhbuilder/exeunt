@@ -61,6 +61,7 @@ export function fakeChain(state: { utilizationBps: number } = { utilizationBps: 
       return d;
     },
     deployedNetworks: () => ["kelp-replay"],
+    rpcUrl: (key) => `http://127.0.0.1/${key}`,
     isReachable: async (key) => key === "kelp-replay",
     readCapacity: async (key, levels) => {
       if (key !== "kelp-replay") throw new AppError(404, ErrorCode.DEPLOYMENT_NOT_FOUND, `No Exeunt deployment for ${key}`);
