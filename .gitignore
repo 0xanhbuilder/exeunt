@@ -37,6 +37,13 @@ contracts/cache/
 contracts/broadcast/
 contracts/deployments/local/
 
+# Personal voice sample for the pitch narration
+ref/
+
+# Pitch video: generated audio, frames and renders
+docs/video/.cache/
+docs/video/out/
+
 # Tooling output
 .release/
 reports/

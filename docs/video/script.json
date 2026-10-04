@@ -1,0 +1,146 @@
+{
+  "say": {
+    "Exeunt": "Ex-ee-unt",
+    "Aave": "Ah-vay",
+    "ETH": "E-T-H"
+  },
+  "scenes": [
+    {
+      "id": "intro",
+      "label": "Introduction",
+      "lines": [
+        {
+          "text": "Lending pools freeze: when borrowers take everything, depositors cannot withdraw, sometimes for days."
+        },
+        {
+          "text": "Exeunt is the exit market for frozen lending pools, on Arbitrum and Robinhood Chain."
+        },
+        {
+          "text": "Depositors sell their receipt at a discount and get paid immediately, without taking any liquidity out of the pool."
+        }
+      ]
+    },
+    {
+      "id": "overall",
+      "label": "Overall",
+      "lines": [
+        {
+          "text": "A frozen pool has no cash left, but its borrowers owe the same asset, so they are the natural buyers."
+        },
+        {
+          "text": "In one transaction, Exeunt takes a flash loan, repays a borrower's debt, uses that new liquidity to redeem the seller's receipt, and returns the loan."
+        },
+        {
+          "text": "The seller is paid, the borrower repays at a discount, and the pool is exactly as liquid as before."
+        },
+        {
+          "text": "Everything else is escrow, and nobody runs it: no owner, no admin, no upgrades."
+        }
+      ]
+    },
+    {
+      "id": "problem",
+      "label": "Problem and solution",
+      "lines": [
+        {
+          "text": "This is real. In April 2026, Aave's ETH pool on Arbitrum held 148 thousand ETH, almost none of it withdrawable, for more than a day.",
+          "say": "This is real. In April, twenty twenty-six, Aave's ETH pool on Arbitrum held a hundred and forty-eight thousand ETH, almost none of it withdrawable, for more than a day."
+        },
+        {
+          "text": "On Robinhood Earn, the USDG vault holds over half a billion dollars; less than a tenth could be withdrawn at once."
+        },
+        {
+          "text": "Waiting is the only built-in exit, and borrowers whose collateral is frozen are trapped too."
+        },
+        {
+          "text": "Exeunt turns a frozen receipt into something people want to buy."
+        }
+      ]
+    },
+    {
+      "id": "usp",
+      "label": "USP",
+      "lines": [
+        {
+          "text": "Six things set Exeunt apart. One: the exit does not drain the pool; Exeunt creates the liquidity it uses."
+        },
+        {
+          "text": "Two: borrowers repay for less. At a 5% discount, 100 of debt costs 95.",
+          "say": "Two: borrowers repay for less. At a five percent discount, a hundred of debt costs ninety-five."
+        },
+        {
+          "text": "Three: no cash needed. In flash mode, the buyer pays with collateral released by the repayment."
+        },
+        {
+          "text": "Four: ordinary wallets and one normal transaction."
+        },
+        {
+          "text": "Five: buyers are ready before the crisis, with escrowed bids and the Exeunt Vault."
+        },
+        {
+          "text": "Six: exit capacity is a public good, readable on-chain by anyone."
+        }
+      ]
+    },
+    {
+      "id": "features",
+      "label": "Core features",
+      "lines": [
+        {
+          "text": "Sellers run a Dutch auction whose discount only rises, or sell now into escrowed bids."
+        },
+        {
+          "text": "Borrowers buy and repay in one transaction, with cash, or in flash mode, where their health factor only goes up."
+        },
+        {
+          "text": "Buyers who don't borrow post escrowed limit bids ahead of any freeze."
+        },
+        {
+          "text": "The Exeunt Vault pools capital, bids by fixed rules, and earns the discount for its depositors."
+        },
+        {
+          "text": "Exit capacity is published on-chain, with alerts before a freeze."
+        },
+        {
+          "text": "Aave borrowers can even repay with frozen collateral."
+        },
+        {
+          "text": "An SDK and an MCP server bring it all to apps and AI agents, without holding keys."
+        }
+      ]
+    },
+    {
+      "id": "arbitrum",
+      "label": "Contribution to Arbitrum",
+      "lines": [
+        {
+          "text": "For Arbitrum, that means safer lending markets, where a freeze no longer has to become a bank run."
+        },
+        {
+          "text": "It brings the same exit to Robinhood Chain, with Paxos USDG as the main payment asset, and public risk data for curators and AI agents."
+        }
+      ]
+    },
+    {
+      "id": "usecases",
+      "label": "Use cases",
+      "lines": [
+        {
+          "text": "It serves depositors and loopers who need out, borrowers repaying below face value, treasuries and market makers, vault depositors, curators and AI agents."
+        }
+      ]
+    },
+    {
+      "id": "stack",
+      "label": "Tech stack",
+      "lines": [
+        {
+          "text": "Built in Solidity on Aave and Morpho, with Chainlink prices, a TypeScript SDK, an MCP server and a React app, it runs on Arbitrum Sepolia and Robinhood Chain Testnet."
+        },
+        {
+          "text": "Exeunt. The exit market for frozen lending pools."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Exeunt pitch</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<!--
+  Frames of the pitch video, driven by seek(t) from build.mjs (nothing animates on its own, so every frame is exact).
+  Timing: data-at="N" shows an element when line N of its scene starts; data-word="…" moves that to the moment the word
+  is spoken (by its position in the line); data-d adds seconds. data-out / data-out-word hide it again, data-on / data-off
+  highlight it (class "on"). data-anim: up (default), left, pop, fade, grow (bar width), draw (SVG path), count (number).
+-->
+<style>
+  :root {
+    --bg: #0d1013;
+    --panel: #151a1f;
+    --panel-2: #1b2127;
+    --line: #29313a;
+    --text: #e8ecef;
+    --muted: #8d98a3;
+    --brand: #3fd08a;
+    --brand-soft: rgba(63, 208, 138, 0.12);
+    --brand-line: rgba(63, 208, 138, 0.45);
+    --red: #e5534b;
+    --red-soft: rgba(229, 83, 75, 0.13);
+    --amber: #f0a94b;
+    --amber-soft: rgba(240, 169, 75, 0.13);
+    --blue: #7fb2ff;
+    --font: "IBM Plex Sans", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); }
+  #stage {
+    position: relative; width: 1920px; height: 1080px; overflow: hidden; color: var(--text); font-family: var(--font);
+    background: radial-gradient(1100px 650px at 78% 12%, rgba(63, 208, 138, 0.08), transparent 62%),
+      radial-gradient(900px 600px at 8% 95%, rgba(127, 178, 255, 0.05), transparent 60%), var(--bg);
+  }
+  #grid {
+    position: absolute; inset: 0;
+    background-image: linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+  header { position: absolute; top: 42px; left: 120px; right: 120px; display: flex; align-items: center; justify-content: space-between; }
+  .brand { display: flex; align-items: center; gap: 14px; font-weight: 700; font-size: 30px; letter-spacing: 0.02em; }
+  .logo { color: var(--brand); }
+  #label { font-family: var(--mono); font-size: 22px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+  #label b { color: var(--brand); font-weight: 600; margin-right: 12px; }
+  .scene { position: absolute; inset: 0; opacity: 0; visibility: hidden; }
+  .content { position: absolute; left: 120px; top: 150px; width: 1680px; height: 720px; }
+  .content > * { position: absolute; }
+  h2 { margin: 0; font-size: 60px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.1; }
+  h2 em { font-style: normal; color: var(--brand); }
+  .eyebrow { font-family: var(--mono); font-size: 21px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 22px; padding: 34px 40px; }
+  .card.on { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand), 0 24px 60px rgba(63, 208, 138, 0.12); }
+  .muted { color: var(--muted); }
+  .big { font-size: 64px; font-weight: 700; line-height: 1.05; letter-spacing: -0.01em; }
+  .mid { font-size: 40px; font-weight: 600; line-height: 1.15; }
+  .body { font-size: 29px; line-height: 1.4; color: #c9d1d8; }
+  .red { color: var(--red); }
+  .amber { color: var(--amber); }
+  .brandc { color: var(--brand); }
+  .bar { height: 22px; border-radius: 11px; background: #232a31; overflow: hidden; }
+  .fill { height: 100%; border-radius: 11px; background: var(--brand); width: calc((var(--from, 0) + (var(--to, 1) - var(--from, 0)) * var(--p, 1)) * 100%); }
+  .fill.red { background: var(--red); }
+  .fill.amber { background: var(--amber); }
+  .pill { white-space: nowrap; display: inline-flex; align-items: center; gap: 12px; padding: 14px 26px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel-2); font-size: 28px; font-weight: 500; }
+  .pill.brand { border-color: var(--brand-line); background: var(--brand-soft); color: #c8f2dc; }
+  .pill.red { border-color: rgba(229, 83, 75, 0.5); background: var(--red-soft); color: #f6c3bf; }
+  .tag { display: inline-block; padding: 8px 18px; border-radius: 10px; font-family: var(--mono); font-weight: 600; font-size: 24px; letter-spacing: 0.12em; }
+  .tag.red { background: var(--red); color: #fff; }
+  .row { display: flex; align-items: center; gap: 22px; }
+  .stack { display: flex; flex-direction: column; gap: 18px; }
+  svg.i { width: 34px; height: 34px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  path.draw, line.draw, polyline.draw { stroke-dasharray: 1; stroke-dashoffset: calc(1 - var(--p, 1)); }
+  .num { width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; background: var(--brand-soft); border: 1px solid var(--brand-line); color: var(--brand); font-family: var(--mono); font-weight: 600; font-size: 26px; flex: none; }
+  .mono { font-family: var(--mono); }
+
+  /* flow steps */
+  .step { width: 375px; height: 270px; }
+  .step .num { margin-bottom: 18px; }
+  .step .t { font-size: 31px; font-weight: 600; line-height: 1.2; }
+  .step .s { font-size: 23px; color: var(--muted); margin-top: 10px; line-height: 1.35; }
+  .arrow { width: 60px; height: 30px; color: var(--brand); }
+  .arrow svg { width: 60px; height: 30px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* tiles (USP, use cases) */
+  .tile { width: 536px; height: 262px; display: flex; flex-direction: column; gap: 14px; transition: none; }
+  .tile .t { font-size: 34px; font-weight: 600; line-height: 1.15; }
+  .tile .s { font-size: 25px; color: var(--muted); line-height: 1.38; }
+  .tile.dim { opacity: 0.5; }
+
+  /* features list */
+  .feat { width: 520px; display: flex; align-items: center; gap: 18px; padding: 15px 22px; border-radius: 14px; font-size: 28px; font-weight: 500; color: var(--muted); border: 1px solid transparent; }
+  .feat i { width: 12px; height: 12px; border-radius: 50%; background: #3a434c; flex: none; }
+  .feat.on { color: var(--text); background: var(--brand-soft); border-color: var(--brand-line); }
+  .feat.on i { background: var(--brand); }
+  .panel { left: 600px; top: 0; width: 1080px; height: 610px; }
+  .kv { display: flex; justify-content: space-between; align-items: center; font-size: 29px; padding: 16px 0; border-bottom: 1px solid var(--line); }
+  .kv:last-child { border-bottom: 0; }
+  .kv b { font-family: var(--mono); font-weight: 600; font-size: 31px; }
+  code.c { font-family: var(--mono); font-size: 25px; color: #b8f0d2; }
+
+  #caption {
+    position: absolute; left: 50%; bottom: 52px; transform: translateX(-50%); max-width: 1600px; width: max-content;
+    padding: 14px 30px; border-radius: 14px; background: rgba(6, 8, 10, 0.82); border: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 37px; line-height: 1.32; font-weight: 500; text-align: center; color: #f3f6f8;
+  }
+  #progress { position: absolute; left: 0; bottom: 0; height: 5px; background: var(--brand); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="grid"></div>
+  <header>
+    <div class="brand">
+      <svg class="logo" width="40" height="40" viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="13" height="24" rx="1"/><path d="M14 15h12"/><path d="M22 11l4 4-4 4"/></svg>
+      Exeunt
+    </div>
+    <div id="label"></div>
+  </header>
+
+  <!-- 1. Introduction -->
+  <section class="scene" data-scene="intro">
+    <div class="content">
+      <div class="card" data-at="0" data-d="-0.6" data-out="1" style="left:0; top:70px; width:860px; height:470px">
+        <div class="eyebrow">Lending pool · ETH</div>
+        <div class="row" style="justify-content:space-between; margin-top:40px">
+          <div class="mid">Utilization</div>
+          <div class="big red" data-at="0" data-d="-0.4" data-anim="count" data-from="71" data-to="100" data-suf="%" data-dur="1.6">100%</div>
+        </div>
+        <div class="bar" style="margin-top:26px; height:30px"><div class="fill red" data-at="0" data-d="-0.4" data-anim="grow" data-dur="1.6" style="--from:0.71"></div></div>
+        <div class="row" style="margin-top:46px; gap:18px">
+          <span class="tag red" data-at="0" data-word="freeze" data-d="0.3" data-anim="pop">FROZEN</span>
+          <span class="body">Borrowers hold all of the liquidity</span>
+        </div>
+      </div>
+      <div class="card" data-at="0" data-word="depositors" data-out="1" style="left:920px; top:70px; width:760px; height:470px">
+        <div class="eyebrow">Depositor</div>
+        <div class="row" style="margin-top:40px; gap:20px">
+          <div class="pill" style="font-size:34px; padding:20px 34px; color:var(--muted)">
+            <svg class="i" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+            Withdraw
+          </div>
+          <span class="body red" data-at="0" data-word="cannot" data-anim="fade">Not available</span>
+        </div>
+        <div class="kv" style="margin-top:34px"><span class="muted">Withdrawable now</span><b class="red">≈ 0</b></div>
+        <div class="kv" data-at="0" data-word="sometimes" data-anim="fade"><span class="muted">Waiting for borrowers to repay</span><b class="amber">days</b></div>
+      </div>
+
+      <div data-at="1" data-anim="pop" style="left:0; top:40px; width:1680px; text-align:center">
+        <div class="row" style="justify-content:center; gap:30px">
+          <svg width="128" height="128" viewBox="0 0 30 30" fill="none" stroke="#3fd08a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="13" height="24" rx="1"/><path d="M14 15h12"/><path d="M22 11l4 4-4 4"/></svg>
+          <div style="font-size:140px; font-weight:700; letter-spacing:0.01em; line-height:1">Exeunt</div>
+        </div>
+      </div>
+      <div data-at="1" data-word="exit market" style="left:0; top:230px; width:1680px; text-align:center">
+        <div style="font-size:52px; font-weight:600">The exit market for <span class="brandc">frozen lending pools</span></div>
+      </div>
+      <div class="row" style="left:0; top:330px; width:1680px; justify-content:center">
+        <span class="pill" data-at="1" data-word="arbitrum">Arbitrum</span>
+        <span class="pill" data-at="1" data-word="robinhood">Robinhood Chain</span>
+      </div>
+      <div class="row" style="left:0; top:480px; width:1680px; justify-content:center; gap:26px">
+        <span class="pill brand" data-at="2" data-word="sell">
+          <svg class="i" viewBox="0 0 24 24"><path d="M4 12h14"/><path d="M13 7l5 5-5 5"/></svg>Sell the frozen receipt at a discount</span>
+        <span class="pill brand" data-at="2" data-word="get paid">
+          <svg class="i" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg>Paid immediately</span>
+        <span class="pill brand" data-at="2" data-word="without">
+          <svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg>Zero liquidity taken from the pool</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. Overall -->
+  <section class="scene" data-scene="overall">
+    <div class="content">
+      <h2 style="left:0; top:0">Borrowers' debt <em>funds the exit</em></h2>
+
+      <div class="card" data-at="0" data-word="frozen pool" data-out="1" style="left:0; top:150px; width:800px; height:300px">
+        <div class="row"><svg class="i red" viewBox="0 0 24 24"><path d="M12 2v20M2 12h20M5 5l14 14M19 5L5 19"/></svg><span class="eyebrow">Frozen pool</span></div>
+        <div class="big" style="margin-top:30px">No cash left</div>
+        <div class="body" style="margin-top:14px">Utilization 100%, withdrawals blocked</div>
+      </div>
+      <div class="card" data-at="0" data-word="borrowers" data-out="1" data-on="0" data-on-word="natural buyers" data-off="1" style="left:880px; top:150px; width:800px; height:300px">
+        <div class="row"><svg class="i brandc" viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0"/><path d="M17 11h5M19.5 8.5v5"/></svg><span class="eyebrow">Its borrowers</span></div>
+        <div class="big" style="margin-top:30px">Owe the same asset</div>
+        <div class="row" style="margin-top:22px"><span class="pill brand" data-at="0" data-word="natural buyers" data-anim="pop">The natural buyers</span></div>
+      </div>
+
+      <div class="eyebrow" data-at="1" data-word="one transaction" data-anim="fade" style="left:0; top:118px; color:var(--brand)">One transaction</div>
+      <div class="card step" data-at="1" data-word="flash loan" style="left:0; top:160px">
+        <div class="num">1</div><div class="t">Flash loan</div><div class="s">Borrow X for the length of the transaction</div>
+      </div>
+      <div class="arrow" data-at="1" data-word="repays" data-anim="fade" style="left:385px; top:280px"><svg viewBox="0 0 60 30"><path d="M4 15h50M42 5l12 10-12 10"/></svg></div>
+      <div class="card step" data-at="1" data-word="repays" style="left:435px; top:160px">
+        <div class="num">2</div><div class="t">Repay the borrower's debt</div><div class="s">Adds X of liquidity to the pool</div>
+      </div>
+      <div class="arrow" data-at="1" data-word="redeem" data-anim="fade" style="left:820px; top:280px"><svg viewBox="0 0 60 30"><path d="M4 15h50M42 5l12 10-12 10"/></svg></div>
+      <div class="card step" data-at="1" data-word="redeem" style="left:870px; top:160px">
+        <div class="num">3</div><div class="t">Redeem the seller's receipt</div><div class="s">With exactly that liquidity</div>
+      </div>
+      <div class="arrow" data-at="1" data-word="returns" data-anim="fade" style="left:1255px; top:280px"><svg viewBox="0 0 60 30"><path d="M4 15h50M42 5l12 10-12 10"/></svg></div>
+      <div class="card step" data-at="1" data-word="returns" style="left:1305px; top:160px">
+        <div class="num">4</div><div class="t">Return the loan</div><div class="s">Repaid in the same transaction</div>
+      </div>
+
+      <div class="row" style="left:0; top:470px; width:1680px; gap:24px">
+        <span class="pill brand" data-at="2" data-word="seller"><svg class="i" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg>Seller paid</span>
+        <span class="pill brand" data-at="2" data-word="borrower"><svg class="i" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg>Borrower repays at a discount</span>
+        <span class="pill brand" data-at="2" data-word="the pool"><svg class="i" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg>Pool exactly as liquid as before</span>
+      </div>
+      <div class="row" style="left:0; top:590px; width:1680px; gap:20px">
+        <span class="pill" data-at="3" data-word="escrow">Escrowed, not trusted</span>
+        <span class="pill" data-at="3" data-word="no owner">No owner</span>
+        <span class="pill" data-at="3" data-word="no admin">No admin</span>
+        <span class="pill" data-at="3" data-word="no upgrades">No upgrades</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. Problem and solution -->
+  <section class="scene" data-scene="problem">
+    <div class="content">
+      <h2 data-at="0" data-out="3" style="left:0; top:0">This is <em>real</em></h2>
+      <div class="card" data-at="0" data-word="in april" data-out="3" style="left:0; top:120px; width:820px; height:400px">
+        <div class="eyebrow">Aave V3 · Arbitrum One · 18 Apr 2026</div>
+        <div class="kv" style="margin-top:22px"><span>Deposits</span><b><span data-at="0" data-word="148" data-anim="count" data-from="0" data-to="148194" data-dur="1.2">148,194</span> WETH</b></div>
+        <div class="kv" data-at="0" data-word="almost none" data-anim="fade"><span>Withdrawable</span><b class="red">0.0001 WETH</b></div>
+        <div class="kv" data-at="0" data-word="more than a day" data-anim="fade"><span>Utilization</span><b class="red">100% · more than a day</b></div>
+        <div class="bar" style="margin-top:12px"><div class="fill red" data-at="0" data-word="almost none" data-anim="grow" data-dur="1" style="--from:0.9"></div></div>
+      </div>
+      <div class="card" data-at="1" data-out="3" style="left:860px; top:120px; width:820px; height:400px">
+        <div class="eyebrow">Robinhood Earn · Steakhouse USDG vault</div>
+        <div class="kv" style="margin-top:22px"><span>Deposits</span><b>$<span data-at="1" data-anim="count" data-from="0" data-to="531" data-dur="1.1">531</span>M</b></div>
+        <div class="kv" data-at="1" data-word="less than" data-anim="fade"><span>Withdrawable at once</span><b class="amber">$45.7M · 8.6%</b></div>
+        <div class="bar" style="margin-top:38px"><div class="fill amber" data-at="1" data-word="less than" data-anim="grow" data-dur="1" style="--to:0.086"></div></div>
+        <div class="body muted" data-at="1" data-word="less than" data-d="0.8" data-anim="fade" style="margin-top:18px; font-size:24px">A bank run on the rest would freeze it</div>
+      </div>
+      <div class="row" data-out="3" style="left:0; top:570px; width:1680px; gap:24px">
+        <span class="pill red" data-at="2" data-word="waiting"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>Only built-in exit: wait</span>
+        <span class="pill red" data-at="2" data-word="borrowers"><svg class="i" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Borrowers with frozen collateral: trapped too</span>
+      </div>
+
+      <div class="row" style="left:0; top:200px; width:1680px; justify-content:center; gap:40px">
+        <div class="card" data-at="3" data-anim="left" style="padding:40px 50px"><div class="eyebrow">Today</div><div class="mid" style="margin-top:12px">A frozen receipt</div></div>
+        <svg width="140" height="60" viewBox="0 0 140 60" fill="none" stroke="#3fd08a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+          <path class="draw" data-at="3" data-word="turns" data-anim="draw" pathLength="1" d="M6 30h124"/>
+          <path class="draw" data-at="3" data-word="turns" data-d="0.4" data-anim="draw" pathLength="1" d="M110 12l20 18-20 18"/>
+        </svg>
+        <div class="card on" data-at="3" data-word="something" data-anim="pop" style="padding:40px 50px"><div class="eyebrow brandc">With Exeunt</div><div class="mid" style="margin-top:12px">Something people want to buy</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. USP -->
+  <section class="scene" data-scene="usp">
+    <div class="content">
+      <h2 data-at="0" style="left:0; top:0">Six things set Exeunt <em>apart</em></h2>
+      <div class="card tile" data-at="0" data-word="one:" data-on="0" data-on-word="one:" data-off="1" style="left:0; top:120px">
+        <div class="num">1</div><div class="t">The exit doesn't drain the pool</div><div class="s">Exeunt creates the liquidity it uses</div>
+      </div>
+      <div class="card tile" data-at="1" data-on="1" data-off="2" style="left:572px; top:120px">
+        <div class="num">2</div><div class="t">Borrowers repay for less</div>
+        <div class="row" style="gap:16px"><span class="big" style="font-size:52px">100</span><svg class="i brandc" viewBox="0 0 24 24"><path d="M4 12h14M13 7l5 5-5 5"/></svg><span class="big brandc" style="font-size:52px">95</span></div>
+        <div class="s">of debt, at a 5% discount</div>
+      </div>
+      <div class="card tile" data-at="2" data-on="2" data-off="3" style="left:1144px; top:120px">
+        <div class="num">3</div><div class="t">No cash needed</div><div class="s">Flash mode pays with collateral released by the repayment</div>
+      </div>
+      <div class="card tile" data-at="3" data-on="3" data-off="4" style="left:0; top:412px">
+        <div class="num">4</div><div class="t">Ordinary wallets</div><div class="s">One normal transaction. No smart account, no bundler</div>
+      </div>
+      <div class="card tile" data-at="4" data-on="4" data-off="5" style="left:572px; top:412px">
+        <div class="num">5</div><div class="t">Buyers before the crisis</div><div class="s">Escrowed bids and the Exeunt Vault</div>
+      </div>
+      <div class="card tile" data-at="5" data-on="5" data-off="end" style="left:1144px; top:412px">
+        <div class="num">6</div><div class="t">Exit capacity as a public good</div><div class="s">Readable on-chain by anyone</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. Core features -->
+  <section class="scene" data-scene="features">
+    <div class="content">
+      <div class="stack" style="left:0; top:0; gap:8px">
+        <div class="feat" data-at="0" data-d="-0.60" data-on="0" data-off="1"><i></i>Selling: auction or sell now</div>
+        <div class="feat" data-at="0" data-d="-0.54" data-on="1" data-off="1" data-off-word="flash mode"><i></i>Buy and repay</div>
+        <div class="feat" data-at="0" data-d="-0.48" data-on="1" data-on-word="flash mode" data-off="2"><i></i>Flash mode</div>
+        <div class="feat" data-at="0" data-d="-0.42" data-on="2" data-off="3"><i></i>Limit bids</div>
+        <div class="feat" data-at="0" data-d="-0.36" data-on="3" data-off="4"><i></i>Exeunt Vault</div>
+        <div class="feat" data-at="0" data-d="-0.30" data-on="4" data-off="5"><i></i>Exit capacity and alerts</div>
+        <div class="feat" data-at="0" data-d="-0.24" data-on="5" data-off="6"><i></i>Frozen-collateral route</div>
+        <div class="feat" data-at="0" data-d="-0.18" data-on="6" data-off="end"><i></i>SDK and MCP server</div>
+      </div>
+
+      <!-- selling -->
+      <div class="card panel" data-at="0" data-out="1">
+        <div class="eyebrow">Dutch auction · example curve</div>
+        <svg width="1000" height="330" viewBox="0 0 1000 330" style="margin-top:20px" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="40" y1="270" x2="980" y2="270" stroke="#3a434c" stroke-width="2"/>
+          <line x1="40" y1="20" x2="40" y2="270" stroke="#3a434c" stroke-width="2"/>
+          <line x1="40" y1="58" x2="980" y2="58" stroke="#e5534b" stroke-width="2" stroke-dasharray="8 10" opacity="0.7"/>
+          <polyline class="draw" data-at="0" data-word="dutch auction" data-anim="draw" data-dur="2.2" pathLength="1" stroke="#3fd08a" stroke-width="5"
+            points="60,250 122,250 122,234 184,234 184,218 246,218 246,202 308,202 308,186 370,186 370,170 432,170 432,154 494,154 494,138 556,138 556,122 618,122 618,106 680,106 680,90 742,90 742,74 804,74 804,58 980,58"/>
+          <text x="980" y="42" text-anchor="end" fill="#e5534b" font-family="IBM Plex Mono" font-size="22">cap 15%, set by the seller</text>
+          <text x="60" y="310" fill="#8d98a3" font-family="IBM Plex Mono" font-size="22">start 1%</text>
+          <text x="980" y="310" text-anchor="end" fill="#8d98a3" font-family="IBM Plex Mono" font-size="22">+0.5% an hour</text>
+        </svg>
+        <div class="row" style="margin-top:26px; gap:18px; flex-wrap:wrap">
+          <span class="pill brand" data-at="0" data-word="only rises">Discount only rises</span>
+          <span class="pill brand" data-at="0" data-word="sell now">Sell now into escrowed bids</span>
+          <span class="pill brand" data-at="0" data-word="sell now" data-d="0.6">Unsold: back at any time</span>
+        </div>
+      </div>
+
+      <!-- buy and repay, flash mode -->
+      <div class="card panel" data-at="1" data-out="2">
+        <div class="eyebrow">Buy and repay · one transaction</div>
+        <div class="stack" style="margin-top:28px; gap:14px">
+          <div class="row" data-at="1" data-word="buy and repay" data-d="0.0"><div class="num">1</div><span class="body">Flash loan of X</span></div>
+          <div class="row" data-at="1" data-word="buy and repay" data-d="0.3"><div class="num">2</div><span class="body">Repay X of the buyer's debt</span></div>
+          <div class="row" data-at="1" data-word="buy and repay" data-d="0.6"><div class="num">3</div><span class="body">Redeem X of the seller's receipts</span></div>
+          <div class="row" data-at="1" data-word="buy and repay" data-d="0.9"><div class="num">4</div><span class="body">Return the loan</span></div>
+        </div>
+        <div class="row" style="margin-top:36px; gap:18px; flex-wrap:wrap">
+          <span class="pill" data-at="1" data-word="with cash">Pay with cash</span>
+          <span class="pill brand" data-at="1" data-word="flash mode">Or with freed collateral</span>
+          <span class="pill brand" data-at="1" data-word="health factor">
+            <svg class="i" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg>Health factor only goes up</span>
+        </div>
+      </div>
+
+      <!-- limit bids -->
+      <div class="card panel" data-at="2" data-out="3">
+        <div class="eyebrow">Escrowed limit bids</div>
+        <div class="stack" style="margin-top:30px; gap:16px">
+          <div class="row" data-at="2" data-word="escrowed" data-d="0.0"><span class="pill" style="width:250px; justify-content:center">min 3%</span><div class="bar" style="flex:1; height:26px"><div class="fill" style="--to:0.42"></div></div></div>
+          <div class="row" data-at="2" data-word="escrowed" data-d="0.2"><span class="pill" style="width:250px; justify-content:center">min 5%</span><div class="bar" style="flex:1; height:26px"><div class="fill" style="--to:0.7"></div></div></div>
+          <div class="row" data-at="2" data-word="escrowed" data-d="0.4"><span class="pill" style="width:250px; justify-content:center">min 8%</span><div class="bar" style="flex:1; height:26px"><div class="fill" style="--to:0.55"></div></div></div>
+        </div>
+        <div class="row" style="margin-top:44px; gap:18px; flex-wrap:wrap">
+          <span class="pill brand" data-at="2" data-word="limit bids">Paid up front in escrow</span>
+          <span class="pill brand" data-at="2" data-word="ahead">Public, before any freeze</span>
+          <span class="pill" data-at="2" data-word="ahead" data-d="0.3">USDG · USDC · the underlying</span>
+        </div>
+      </div>
+
+      <!-- vault -->
+      <div class="card panel" data-at="3" data-out="4">
+        <div class="eyebrow">Exeunt Vault · rules fixed at deployment</div>
+        <div class="row" style="margin-top:34px; gap:24px">
+          <div class="card" data-at="3" data-word="fixed rules" style="flex:1; background:var(--panel-2)"><div class="big brandc">≥ 3%</div><div class="body" style="margin-top:8px">discount on every buy</div></div>
+          <div class="card" data-at="3" data-word="fixed rules" data-d="0.3" style="flex:1; background:var(--panel-2)"><div class="big brandc">≤ 20%</div><div class="body" style="margin-top:8px">of capital per receipt</div></div>
+        </div>
+        <div class="row" style="margin-top:34px; gap:18px; flex-wrap:wrap">
+          <span class="pill brand" data-at="3" data-word="earns">Discount earned for depositors</span>
+          <span class="pill" data-at="3" data-word="earns" data-d="0.4">Withdraw any time</span>
+        </div>
+      </div>
+
+      <!-- exit capacity -->
+      <div class="card panel" data-at="4" data-out="5">
+        <div class="eyebrow">Exit capacity · on-chain, no permission, no fee</div>
+        <div style="margin-top:14px">
+          <div class="kv" data-at="4" data-word="published" data-d="0.0"><span>Withdrawable now</span><div class="bar" style="width:300px"><div class="fill red" style="--to:0.04"></div></div></div>
+          <div class="kv" data-at="4" data-word="published" data-d="0.2"><span>Same-asset debt that can absorb receipts</span><div class="bar" style="width:300px"><div class="fill" style="--to:0.85"></div></div></div>
+          <div class="kv" data-at="4" data-word="published" data-d="0.4"><span>Receipts for sale</span><div class="bar" style="width:300px"><div class="fill amber" style="--to:0.4"></div></div></div>
+          <div class="kv" data-at="4" data-word="published" data-d="0.6"><span>Escrowed bids at a discount</span><div class="bar" style="width:300px"><div class="fill" style="--to:0.55"></div></div></div>
+        </div>
+        <div class="row" style="margin-top:22px"><span class="pill red" data-at="4" data-word="alerts">
+          <svg class="i" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21h4"/></svg>Alert when utilization crosses your threshold</span></div>
+      </div>
+
+      <!-- frozen collateral -->
+      <div class="card panel" data-at="5" data-out="6">
+        <div class="eyebrow">Frozen-collateral route · Aave</div>
+        <div class="stack" style="margin-top:34px; gap:22px">
+          <div class="row" data-at="5" data-word="aave" data-d="0.0"><div class="num">1</div><span class="body">Flash loan repays the debt first</span></div>
+          <div class="row" data-at="5" data-word="aave" data-d="0.4"><div class="num">2</div><span class="body">Frozen aToken collateral sold into escrowed bids</span></div>
+          <div class="row" data-at="5" data-word="aave" data-d="0.8"><div class="num">3</div><span class="body">Loan returned, surplus back to the borrower</span></div>
+        </div>
+        <div class="row" style="margin-top:40px"><span class="pill brand" data-at="5" data-word="repay">Health factor never dips mid-way</span></div>
+      </div>
+
+      <!-- integrations -->
+      <div class="card panel" data-at="6">
+        <div class="eyebrow">For apps and AI agents</div>
+        <div class="row" style="margin-top:28px; gap:22px">
+          <div class="card" data-at="6" data-word="sdk" style="flex:1; background:var(--panel-2)"><div class="mid">SDK</div><div class="body muted" style="margin-top:8px">TypeScript, viem</div></div>
+          <div class="card" data-at="6" data-word="mcp server" style="flex:1; background:var(--panel-2)"><div class="mid">MCP server</div><div class="body muted" style="margin-top:8px">18 tools</div></div>
+        </div>
+        <div class="stack" style="margin-top:24px; gap:8px" data-at="6" data-word="apps">
+          <code class="c">get_exit_capacity · quote_purchase · plan_sell_now</code>
+          <code class="c">build_buy_and_repay · simulate_transaction · …</code>
+        </div>
+        <div class="row" style="margin-top:28px"><span class="pill brand" data-at="6" data-word="without">
+          <svg class="i" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l8-8M16 7l3 3"/></svg>Unsigned transactions only: keys stay with the user</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. Contribution to Arbitrum -->
+  <section class="scene" data-scene="arbitrum">
+    <div class="content">
+      <h2 style="left:0; top:0">What it brings to <em>Arbitrum</em></h2>
+      <div class="card" data-at="0" data-word="safer" style="left:0; top:130px; width:536px; height:470px">
+        <svg class="i brandc" style="width:56px; height:56px" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>
+        <div class="mid" style="margin-top:26px">Safer lending markets</div>
+        <div class="body" style="margin-top:16px">Depositors have an exit, so a freeze no longer has to become a bank run</div>
+      </div>
+      <div class="card" data-at="1" data-word="robinhood" style="left:572px; top:130px; width:536px; height:470px">
+        <svg class="i brandc" style="width:56px; height:56px" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1"/><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"/></svg>
+        <div class="mid" style="margin-top:26px">Robinhood Chain and USDG</div>
+        <div class="body" style="margin-top:16px">The same exit for Morpho vaults, with Paxos USDG as the main payment asset</div>
+      </div>
+      <div class="card" data-at="1" data-word="public risk data" style="left:1144px; top:130px; width:536px; height:470px">
+        <svg class="i brandc" style="width:56px; height:56px" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+        <div class="mid" style="margin-top:26px">Public risk data</div>
+        <div class="body" style="margin-top:16px">Exit capacity on-chain for curators, risk teams and AI agents to build on</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. Use cases -->
+  <section class="scene" data-scene="usecases">
+    <div class="content">
+      <h2 style="left:0; top:0">Who it <em>serves</em></h2>
+      <div class="card tile" data-at="0" data-word="depositors and loopers" style="left:0; top:120px"><div class="t">Depositors and loopers</div><div class="s">Get paid during the freeze, or unwind a loop</div></div>
+      <div class="card tile" data-at="0" data-word="borrowers" style="left:572px; top:120px"><div class="t">Same-asset borrowers</div><div class="s">Repay below face value, even with no cash</div></div>
+      <div class="card tile" data-at="0" data-word="treasuries" style="left:1144px; top:120px"><div class="t">Treasuries and market makers</div><div class="s">Escrowed bids that earn the discount</div></div>
+      <div class="card tile" data-at="0" data-word="vault depositors" style="left:0; top:412px"><div class="t">Vault depositors</div><div class="s">One deposit in the Exeunt Vault, ready for any freeze</div></div>
+      <div class="card tile" data-at="0" data-word="curators" style="left:572px; top:412px"><div class="t">Curators and risk teams</div><div class="s">Exit capacity and alerts before a freeze</div></div>
+      <div class="card tile" data-at="0" data-word="ai agents" style="left:1144px; top:412px"><div class="t">AI agents</div><div class="s">Sell early or repay in flash mode; the user signs</div></div>
+    </div>
+  </section>
+
+  <!-- 8. Tech stack and close -->
+  <section class="scene" data-scene="stack">
+    <div class="content">
+      <h2 data-at="0" data-d="-0.5" data-out="1" style="left:0; top:0">Built <em>with</em></h2>
+      <div class="row" data-out="1" style="left:0; top:130px; width:1680px; gap:20px; flex-wrap:wrap">
+        <span class="pill" data-at="0" data-word="solidity">Solidity</span>
+        <span class="pill" data-at="0" data-word="solidity" data-d="0.3">Foundry</span>
+        <span class="pill" data-at="0" data-word="aave">Aave V3</span>
+        <span class="pill" data-at="0" data-word="morpho">Morpho Blue · Vault V2</span>
+        <span class="pill" data-at="0" data-word="chainlink">Chainlink</span>
+        <span class="pill" data-at="0" data-word="typescript">TypeScript SDK</span>
+        <span class="pill" data-at="0" data-word="mcp server">MCP server</span>
+        <span class="pill" data-at="0" data-word="react">React</span>
+      </div>
+      <div class="row" data-out="1" style="left:0; top:330px; width:1680px; gap:24px">
+        <span class="pill brand" data-at="0" data-word="arbitrum sepolia" style="font-size:34px; padding:20px 34px">Arbitrum Sepolia</span>
+        <span class="pill brand" data-at="0" data-word="robinhood chain testnet" style="font-size:34px; padding:20px 34px">Robinhood Chain Testnet</span>
+      </div>
+
+      <div data-at="1" data-anim="pop" style="left:0; top:110px; width:1680px; text-align:center">
+        <div class="row" style="justify-content:center; gap:30px">
+          <svg width="140" height="140" viewBox="0 0 30 30" fill="none" stroke="#3fd08a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="13" height="24" rx="1"/><path d="M14 15h12"/><path d="M22 11l4 4-4 4"/></svg>
+          <div style="font-size:150px; font-weight:700; letter-spacing:0.01em; line-height:1">Exeunt</div>
+        </div>
+      </div>
+      <div data-at="1" data-word="the exit" style="left:0; top:320px; width:1680px; text-align:center">
+        <div style="font-size:54px; font-weight:600">The exit market for <span class="brandc">frozen lending pools</span></div>
+      </div>
+      <div data-at="1" data-word="the exit" data-d="0.8" data-anim="fade" style="left:0; top:440px; width:1680px; text-align:center">
+        <span class="mono" style="font-size:36px; color:var(--muted)">exeunt.space</span>
+      </div>
+    </div>
+  </section>
+
+  <div id="caption"></div>
+  <div id="progress"></div>
+</div>
+
+<script type="module">
+const clamp = (x) => Math.max(0, Math.min(1, x));
+const ease = (x) => 1 - Math.pow(1 - x, 3);
+
+try {
+  const TL = await (await fetch("timeline.json")).json();
+  const cue = (scene, at, word, d) => {
+    if (at === "end") return scene.end + 1;
+    const ln = scene.lines[Number(at)];
+    if (!ln) throw new Error(`${scene.id}: no line ${at}`);
+    let t = ln.start;
+    if (word) {
+      const i = ln.text.toLowerCase().indexOf(word.toLowerCase());
+      if (i < 0) throw new Error(`${scene.id}: "${word}" is not in line ${at}: ${ln.text}`);
+      t += (i / ln.text.length) * (ln.end - ln.start);
+    }
+    return t + Number(d ?? 0);
+  };
+  const scenes = [...document.querySelectorAll(".scene")].map((el) => {
+    const s = TL.scenes.find((x) => x.id === el.dataset.scene);
+    if (!s) throw new Error(`timeline has no scene ${el.dataset.scene}`);
+    const items = [...el.querySelectorAll("[data-at],[data-on],[data-out]")].map((node) => {
+      const a = node.dataset;
+      return {
+        node,
+        anim: a.anim ?? "up",
+        tIn: a.at != null ? cue(s, a.at, a.word, a.d) : null,
+        dur: Number(a.dur ?? 0.6),
+        tOut: a.out != null ? cue(s, a.out, a.outWord, a.outD) : null,
+        tOn: a.on != null ? cue(s, a.on, a.onWord, a.onD) : null,
+        tOff: a.on != null ? cue(s, a.off ?? "end", a.offWord) : null,
+      };
+    });
+    return { el, s, items, last: s === TL.scenes.at(-1) };
+  });
+  const fmt = (node, p) => {
+    const a = node.dataset;
+    const v = Number(a.from) + (Number(a.to) - Number(a.from)) * p;
+    const dec = Number(a.dec ?? 0);
+    return (a.pre ?? "") + v.toLocaleString("en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec }) + (a.suf ?? "");
+  };
+  const caption = document.getElementById("caption");
+  const label = document.getElementById("label");
+  const progress = document.getElementById("progress");
+
+  window.seek = (t) => {
+    let current = scenes[0];
+    for (const sc of scenes) {
+      const { s } = sc;
+      const fin = s.index === 0 ? 1 : clamp((t - (s.start - 0.25)) / 0.5);
+      const fout = sc.last ? 1 : 1 - clamp((t - (s.end - 0.25)) / 0.5);
+      const o = Math.min(fin, fout);
+      sc.el.style.opacity = o;
+      sc.el.style.visibility = o > 0 ? "visible" : "hidden";
+      if (t >= s.start) current = sc;
+      if (o <= 0) continue;
+      for (const it of sc.items) {
+        const n = it.node;
+        if (it.tIn != null || it.tOut != null) {
+          const p = it.tIn == null ? 1 : ease(clamp((t - it.tIn) / it.dur));
+          const q = it.tOut == null ? 1 : 1 - ease(clamp((t - it.tOut) / 0.45));
+          n.style.setProperty("--p", p);
+          if (it.anim === "grow" || it.anim === "draw") n.style.opacity = q;
+          else if (it.anim === "count") {
+            n.style.opacity = q;
+            n.textContent = fmt(n, p);
+          } else {
+            n.style.opacity = p * q;
+            n.style.transform =
+              it.anim === "up" ? `translateY(${(1 - p) * 28}px)` :
+              it.anim === "left" ? `translateX(${(1 - p) * -40}px)` :
+              it.anim === "pop" ? `scale(${0.88 + 0.12 * p})` : "";
+          }
+        }
+        if (it.tOn != null) n.classList.toggle("on", t >= it.tOn && t < it.tOff);
+      }
+    }
+    label.innerHTML = `<b>${String(current.s.index + 1).padStart(2, "0")}</b>${current.s.label}`;
+    const c = TL.captions.findLast((x) => x.start <= t && t < x.end + 0.3);
+    caption.textContent = c ? c.text : "";
+    caption.style.opacity = c ? clamp((t - c.start) / 0.12) : 0;
+    progress.style.width = `${(t / TL.duration) * 100}%`;
+  };
+
+  await Promise.all(
+    ["400 30px 'IBM Plex Sans'", "500 30px 'IBM Plex Sans'", "600 30px 'IBM Plex Sans'", "700 30px 'IBM Plex Sans'",
+     "400 30px 'IBM Plex Mono'", "600 30px 'IBM Plex Mono'"].map((f) => document.fonts.load(f)),
+  );
+  await document.fonts.ready;
+  window.seek(Number(new URLSearchParams(location.search).get("t") ?? 0)); // ?t=42 previews that moment in a browser
+  window.ready = true;
+} catch (e) {
+  window.initError = String(e?.stack ?? e);
+}
+</script>
+</body>
+</html>
