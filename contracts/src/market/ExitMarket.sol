@@ -136,15 +136,15 @@ abstract contract ExitMarket is ReentrancyGuardTransient {
     error SamePaymentAsset();
     error EscrowTouched();
 
-    constructor(IERC20 receipt_, address underlying_, PriceRouter prices_, address[] memory payTokens) {
-        if (payTokens.length == 0 || payTokens.length > MAX_PAY_TOKENS) revert BadParams();
-        for (uint256 i; i < payTokens.length; i++) {
-            if (payTokens[i] == address(0) || payTokens[i] == address(receipt_)) revert BadParams();
+    constructor(IERC20 receipt_, address underlying_, PriceRouter prices_, address[] memory payTokenList) {
+        if (payTokenList.length == 0 || payTokenList.length > MAX_PAY_TOKENS) revert BadParams();
+        for (uint256 i; i < payTokenList.length; i++) {
+            if (payTokenList[i] == address(0) || payTokenList[i] == address(receipt_)) revert BadParams();
             for (uint256 j; j < i; j++) {
-                if (payTokens[j] == payTokens[i]) revert BadParams();
+                if (payTokenList[j] == payTokenList[i]) revert BadParams();
             }
-            if (payTokens[i] != underlying_) {
-                if (prices_.feedOf(payTokens[i]) == address(0) || prices_.feedOf(underlying_) == address(0)) {
+            if (payTokenList[i] != underlying_) {
+                if (prices_.feedOf(payTokenList[i]) == address(0) || prices_.feedOf(underlying_) == address(0)) {
                     revert BadParams();
                 }
             }
@@ -153,7 +153,7 @@ abstract contract ExitMarket is ReentrancyGuardTransient {
         underlying = underlying_;
         prices = prices_;
         underlyingDecimals = IERC20Metadata(underlying_).decimals();
-        payTokens_ = payTokens;
+        payTokens_ = payTokenList;
     }
 
     /* ------------------------------------------------------------------ */
