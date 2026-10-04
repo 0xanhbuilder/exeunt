@@ -31,3 +31,6 @@ arbitrum_sepolia = "${ARB_SEPOLIA_RPC}"
 robinhood_testnet = "${ROBINHOOD_TESTNET_RPC}"
 arbitrum_one = "${ARB_ONE_RPC}"
 robinhood_mainnet = "${ROBINHOOD_MAINNET_RPC}"
+
+[lint]
+lint_on_build = false
