@@ -1,7 +1,8 @@
 // Copies deployment address files into public/deployments so the app can fetch them at runtime.
-// A real testnet deployment (contracts/deployments/<network>.json) wins over a local fork one
-// (contracts/deployments/local/<network>.json). Networks with neither are left out; the app then
-// shows "not deployed yet" for them.
+// Live testnets use their real deployment (contracts/deployments/<network>.json). Scenario forks use
+// the local fork deployment (contracts/deployments/local/<network>.json). Set EXEUNT_LOCAL_TESTNETS=1
+// to also let live testnets fall back to a local fork deployment (pair it with VITE_RPC_<NETWORK>).
+// Networks without a usable file are left out; the app then shows "not deployed yet" for them.
 import { copyFileSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,7 +19,8 @@ mkdirSync(target, { recursive: true });
 for (const key of Object.keys(NETWORKS)) {
   const live = join(source, `${key}.json`);
   const local = join(source, "local", `${key}.json`);
-  const from = existsSync(live) ? live : existsSync(local) ? local : null;
+  const allowLocal = NETWORKS[key].isFork || process.env.EXEUNT_LOCAL_TESTNETS === "1";
+  const from = existsSync(live) ? live : allowLocal && existsSync(local) ? local : null;
   if (!from) {
     process.stdout.write(`[deployments] ${key}: none found, the app will show "not deployed yet"\n`);
     continue;
