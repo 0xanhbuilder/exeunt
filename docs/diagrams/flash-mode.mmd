@@ -5,7 +5,7 @@ sequenceDiagram
     participant P as Lending pool
     participant S as Seller
     B->>M: Buy, paying with collateral
-    M->>P: Repay the buyer's debt, as in 5.3
+    M->>P: Repay the buyer's debt first
     Note over P: Part of the collateral is freed
     alt Aave
         M->>P: Redeem freed aToken collateral, approved once
