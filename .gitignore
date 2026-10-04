@@ -1,0 +1,44 @@
+# Private planning and tooling notes (kept out of the repository)
+brd.md
+CLAUDE.md
+claude.md
+Sample-architecture-nodejs-backend.md
+AGENTS.md
+GEMINI.md
+.claude/
+.cursor/
+.cursorrules
+.windsurf/
+.aider*
+.continue/
+.codex/
+.github/copilot-instructions.md
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.key
+keystore/
+
+# Node
+node_modules/
+dist/
+build/
+.next/
+.turbo/
+coverage/
+*.tsbuildinfo
+npm-debug.log*
+
+# Foundry
+contracts/out/
+contracts/cache/
+contracts/broadcast/*/31337/
+contracts/broadcast/**/dry-run/
+
+# Tooling output
+reports/
+*.log
+.DS_Store
+Thumbs.db

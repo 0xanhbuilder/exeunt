@@ -1,0 +1,33 @@
+[profile.default]
+src = "src"
+out = "out"
+test = "test"
+script = "script"
+libs = ["lib"]
+via_ir = true
+optimizer = true
+optimizer_runs = 200
+bytecode_hash = "none"
+evm_version = "cancun"
+fs_permissions = [{ access = "read-write", path = "./deployments" }, { access = "read", path = "./out" }]
+remappings = [
+  "forge-std/=lib/forge-std/src/",
+  "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+  "vault-v2/=lib/vault-v2/src/",
+  "morpho-blue/=lib/vault-v2/lib/morpho-blue/src/",
+  "morpho-blue-irm/=lib/vault-v2/lib/morpho-blue-irm/src/",
+]
+
+[profile.default.fuzz]
+runs = 256
+
+[profile.default.invariant]
+runs = 64
+depth = 64
+fail_on_revert = false
+
+[rpc_endpoints]
+arbitrum_sepolia = "${ARB_SEPOLIA_RPC}"
+robinhood_testnet = "${ROBINHOOD_TESTNET_RPC}"
+arbitrum_one = "${ARB_ONE_RPC}"
+robinhood_mainnet = "${ROBINHOOD_MAINNET_RPC}"
