@@ -10,9 +10,6 @@ The full pitch, with every feature and its flow: [`docs/pitch.md`](docs/pitch.md
 
 | | |
 |---|---|
-| HackQuest | [link to be added] |
-| Demo video | [link to be added] |
-| Pitch video | [link to be added] |
 | Website | <https://exeunt.space> |
 | API | <https://api.exeunt.space> |
 | MCP server (Streamable HTTP) | <https://api.exeunt.space/mcp> |
