@@ -36,6 +36,42 @@ import type {
 const BPS = 10_000n;
 const WAD = 10n ** 18n;
 const ORACLE_SCALE = 10n ** 36n;
+const VIRTUAL_SHARES = 10n ** 6n;
+const VIRTUAL_ASSETS = 1n;
+
+const irmAbi = [
+  {
+    type: "function",
+    name: "borrowRateView",
+    stateMutability: "view",
+    inputs: [
+      {
+        name: "marketParams",
+        type: "tuple",
+        components: [
+          { name: "loanToken", type: "address" },
+          { name: "collateralToken", type: "address" },
+          { name: "oracle", type: "address" },
+          { name: "irm", type: "address" },
+          { name: "lltv", type: "uint256" },
+        ],
+      },
+      {
+        name: "market",
+        type: "tuple",
+        components: [
+          { name: "totalSupplyAssets", type: "uint128" },
+          { name: "totalSupplyShares", type: "uint128" },
+          { name: "totalBorrowAssets", type: "uint128" },
+          { name: "totalBorrowShares", type: "uint128" },
+          { name: "lastUpdate", type: "uint128" },
+          { name: "fee", type: "uint128" },
+        ],
+      },
+    ],
+    outputs: [{ type: "uint256" }],
+  },
+] as const;
 
 const MARKET_PARAMS_TUPLE = {
   type: "tuple",
@@ -280,9 +316,12 @@ export class ExeuntClient {
       ]);
       const borrowShares = pos[1];
       if (borrowShares === 0n) continue;
-      const totalBorrowAssets = m[2];
+      const totalBorrowAssets = await this.expectedTotalBorrow(params, m);
       const totalBorrowShares = m[3];
-      const debt = (borrowShares * totalBorrowAssets + totalBorrowShares - 1n) / totalBorrowShares;
+      // Same rounding as Morpho's toAssetsUp with virtual shares/assets.
+      const debt =
+        (borrowShares * (totalBorrowAssets + VIRTUAL_ASSETS) + totalBorrowShares + VIRTUAL_SHARES - 1n) /
+        (totalBorrowShares + VIRTUAL_SHARES);
       if (debt <= best.debt) continue;
       const price = await this.client.readContract({
         address: params.oracle,
@@ -293,6 +332,38 @@ export class ExeuntClient {
       best = { debt, health: (maxBorrow * WAD) / debt, market: params, marketId: id, collateral: pos[2] };
     }
     return best;
+  }
+
+  /** Total borrow including interest accrued since the market's last update (Morpho's expectedMarketBalances). */
+  private async expectedTotalBorrow(
+    params: MorphoMarketParams,
+    m: readonly [bigint, bigint, bigint, bigint, bigint, bigint],
+  ): Promise<bigint> {
+    const [, , totalBorrowAssets, , lastUpdate] = m;
+    if (params.irm === zeroAddress || totalBorrowAssets === 0n) return totalBorrowAssets;
+    const block = await this.client.getBlock();
+    const elapsed = block.timestamp - lastUpdate;
+    if (elapsed <= 0n) return totalBorrowAssets;
+    const rate = await this.client.readContract({
+      address: params.irm,
+      abi: irmAbi,
+      functionName: "borrowRateView",
+      args: [
+        params,
+        {
+          totalSupplyAssets: m[0],
+          totalSupplyShares: m[1],
+          totalBorrowAssets: m[2],
+          totalBorrowShares: m[3],
+          lastUpdate: m[4],
+          fee: m[5],
+        },
+      ],
+    });
+    const first = rate * elapsed;
+    const second = (first * first) / (2n * WAD);
+    const third = (second * first) / (3n * WAD);
+    return totalBorrowAssets + (totalBorrowAssets * (first + second + third)) / WAD;
   }
 
   private morphoMarketCache?: { id: Hex; params: MorphoMarketParams }[];

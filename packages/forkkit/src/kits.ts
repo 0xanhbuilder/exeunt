@@ -3,8 +3,8 @@ import { aavePoolAbi, erc20Abi, ExeuntClient, morphoAbi, vaultV2Abi, type Deploy
 import { Anvil } from "./anvil.js";
 
 /** Fixed fork-only helper accounts. They hold no keys; anvil impersonation signs for them. */
-export const FREEZER: Address = "0x00000000000000000000000000000000F12EE2E1";
-export const LIQUIDITY_HELPER: Address = "0x00000000000000000000000000000000110A1D01";
+export const FREEZER: Address = "0x00000000000000000000000000000000f12ee2e1";
+export const LIQUIDITY_HELPER: Address = "0x00000000000000000000000000000000110a1d01";
 
 const ETH = 10n ** 18n;
 

@@ -1,0 +1,21 @@
+{
+  "name": "@exeunt/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Unattended end-to-end scenario runner on anvil forks and live testnets",
+  "scripts": {
+    "e2e": "tsx src/run.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@exeunt/sdk": "*",
+    "viem": "^2.21.0",
+    "@exeunt/forkkit": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

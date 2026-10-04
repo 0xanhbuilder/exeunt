@@ -91,7 +91,7 @@ export class Anvil {
   async findBalanceSlot(token: Address): Promise<{ slot: Hex; vyper: boolean }> {
     const cached = this.slotCache.get(token);
     if (cached) return cached;
-    const probeHolder = "0x00000000000000000000000000000000000E7E07" as Address;
+    const probeHolder = "0x00000000000000000000000000000000000e7e07" as Address;
     const probe = 123_456_789_123n;
     for (const slot of Anvil.candidates()) {
       for (const vyper of [false, true]) {
