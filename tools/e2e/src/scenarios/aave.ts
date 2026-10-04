@@ -42,7 +42,7 @@ export async function aaveScenario(
   await r.step("setup: buyer owes 60 WETH against USDC collateral", async () => {
     await borrowerKit(kit, buyer.address, 60n * E18, opts.leave);
     const pos = await sdk.position(buyer.address);
-    check(pos.debt >= 60n * E18, `debt ${pos.debt}`);
+    check(pos.debt >= 60n * E18 - 10n, `debt ${pos.debt}`); // debt-token rounding can be a wei short
     await bidderKit(kit, buyer.address, { [usdg]: 500_000n * 10n ** 6n });
     return { debt: fmt(pos.debt), healthFactor: fmt(pos.health) };
   });
