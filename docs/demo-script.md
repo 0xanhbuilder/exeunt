@@ -1,0 +1,43 @@
+# Demo plan
+
+- Step 1. Introduction:
+    - Line: Hello everyone, welcome to the Exeunt demo. Exeunt is an exit market for frozen lending pools on Arbitrum and Robinhood Chain. When borrowers take all of a pool's liquidity, depositors cannot withdraw, sometimes for days. Exeunt lets them sell their stuck deposit to borrowers, bidders or a shared vault and get paid right away, without taking any liquidity out of the pool.
+    - Action: Do nothing, this is just an introduction.
+- Step 2. Preparation:
+    - Line: For this demo we use the web app at exeunt.space, on the Kelp replay network: a fork of Arbitrum One on 18 April 2026, the day the Aave WETH pool hit 100% utilization. It runs against Aave's real contracts and real state. I have prepared 2 browser profiles, both using the built-in demo wallet. Alice is a depositor with 10 WETH stuck in the pool. Bob borrowed 5 WETH against USDC, and also holds spare WETH and stablecoins to bid with. Their positions come from the faucet on this fork, and anyone can get the same with one click.
+    - Action: Before recording: (1) check that both hosted forks answer a fresh-account `eth_getBalance` through `https://api.exeunt.space/rpc/kelp-replay` and `/rpc/earn-bank-run`, and refresh any that fails (`sudo systemctl start exeunt-refresh@<network>` on the VM). The forks also reset every day at 03:00 UTC (Kelp replay) and 03:30 UTC (Earn bank-run), which wipes the kits, so prepare and record between two resets. (2) Open https://exeunt.space in 2 browser profiles, pick Kelp replay, and connect the demo wallet in each. (3) From the wallet menu, take the Seller kit in Alice's profile, and the Borrower kit and the Bidder kit in Bob's. On camera, show the two profiles side by side.
+- Step 3. Exit capacity:
+    - Line: This is the Overview. Every pool shows its exit capacity, read straight from the chain. Utilization is at 100% and nothing is withdrawable. But borrowers of the same asset owe nearly 150,000 WETH, far more than what is stuck, and that debt is where the exit comes from. Curators can also set an alert here, and get a signed webhook when utilization crosses their threshold.
+    - Action: In Alice's profile, on Overview, point at the Kelp replay row: Withdrawable now, Utilization, Exit via borrowers, Exit via vault & bids. Scroll to the utilization chart, then hover the "Alert me" form.
+- Step 4. Open an auction:
+    - Line: Alice wants out. She could sell into standing bids right away, but first she runs a Dutch auction, so she gives away only as much discount as she must. It starts at 0.5% and rises by 0.25% every 15 minutes, up to 5%, and it never goes back down. By default she accepts any of the market's payment assets: USDG, USDC, WETH and wstETH. Her receipts are held in escrow, and she can take back the unsold part at any time.
+    - Action: Alice's profile, Sell page. Choose "Run an auction", enter 4, keep the default settings, click Open auction.
+- Step 5. Buy and repay:
+    - Line: Bob owes 5 WETH. On the Buy page he sees Alice's auction and buys 1 WETH of her receipts, paying in USDG. In one transaction, Exeunt flash-borrows WETH, repays 1 WETH of Bob's debt, uses that new liquidity to redeem Alice's receipts, and returns the loan. Bob's debt drops by 1 WETH and he pays half a percent less, Alice is paid at once, and the pool's withdrawable liquidity is exactly what it was before.
+    - Action: Bob's profile, Buy page. Select Alice's auction, enter 1, keep "From your wallet" with USDG, point at You pay (about 2,342 USDG) and You save (0.005 WETH), click Buy. Show the debt going from 5 to 4 WETH.
+- Step 6. Flash mode:
+    - Line: What if a borrower has no cash? With flash mode, Bob pays with his collateral instead. The market repays his debt first, which frees part of his USDC collateral, and that collateral pays Alice. Bob needs nothing up front, and his health factor can only go up: if it would go down, the transaction reverts.
+    - Action: Same auction, enter 1, choose "Flash loan · no cash needed" with USDC selected. Point at Cash needed up front (0), the collateral that will be taken, and the health factor estimate going up (for example 6.71 to 8.69), then click Buy; the one-time approval runs first, in the same click. Show the debt going from 4 to 3 WETH.
+- Step 7. Limit bids:
+    - Line: Not every buyer borrows. Treasuries and market makers can post limit bids before any freeze: escrow the funds and set the minimum discount they accept. Only escrowed funds count, every bid is public, and a bid can be cancelled at any time.
+    - Action: Bob's profile, Earn page, Limit bids tab. Enter 2, discount 2%, escrow in WETH; point at "Escrow needed: 1.96 WETH", then place the bid. Show it in the order book.
+- Step 8. Exeunt Vault:
+    - Line: For passive capital there is the Exeunt Vault. You deposit once, and the vault bids by rules fixed at deployment: at least a 3% discount, and at most 20% of its capital per receipt. Its capital stays out of the pool it protects. When the pool refills, anyone can trigger its recovery, and the discount becomes the depositors' profit. Depositors can leave at any time.
+    - Action: Bob's profile, Earn page, Exeunt Vault tab. Deposit 5 WETH. Point at Standing bid now, Waiting capital and Held in stuck receipts.
+- Step 9. Sell now:
+    - Line: Back to Alice. She does not want to wait for the auction any more, so she sells 3 WETH now. The preview fills the smallest discounts first, across limit bids and the vault. Each bid pays from its own escrow, in its own asset, and she is paid in the same transaction.
+    - Action: Alice's profile, Sell page. Choose "Sell now", enter 3, point at Filled now, Average discount and You receive, click Sell now.
+- Step 10. Take back the unsold rest:
+    - Line: Bob bought 2 of the 4 WETH in Alice's auction. She can take back the other 2 whenever she wants, with no waiting period; what already sold stays sold.
+    - Action: Alice's profile, Sell page, Your sales. Point at "2 WETH of 4 WETH" sold, then click Withdraw on the auction.
+- Step 11. Frozen collateral:
+    - Line: One more case: Aave borrowers whose collateral is the frozen asset. They cannot withdraw it, so they cannot use it to repay debt or move it. This page first checks whether a direct withdrawal works. When it is blocked, Exeunt sells the collateral into escrowed bids to repay debt, or swaps it for new collateral, in a single transaction.
+    - Action: Alice's profile, Frozen collateral page. Point at "Withdraw WETH directly: blocked", then hover the Repay debt and Swap collateral options.
+- Step 12. Robinhood Chain:
+    - Line: The same exit works on Robinhood Chain, an Arbitrum Orbit chain, for Morpho Earn vaults, with Paxos USDG as the main payment asset. This is the Earn bank-run network: a fork of Robinhood Chain where the Steakhouse USDG vault was drained. Same pages, same flows. On Morpho, flash mode uses a signed authorization instead of an approval, and revokes it in the same transaction.
+    - Action: Switch the network to Earn bank-run. Show the Overview row (100% utilization, 0 USDG withdrawable, bids by discount), then the Sell page.
+- Step 13. Developers and AI agents:
+    - Line: Everything you saw is also open to other apps and to AI agents: on-chain reads, a TypeScript SDK, webhooks, and an MCP server with 18 tools. The MCP server never holds keys. It returns unsigned transactions, and the user's or the agent's wallet signs them.
+    - Action: Open the Developers page and scroll through the four sections. Then, in an MCP client connected to `https://api.exeunt.space/mcp`, ask "What is the exit capacity of the kelp-replay pool?" and show the answer from the get_exit_capacity tool.
+- Step 14. Outro
+    - That's all for our demo. With Exeunt, a frozen pool no longer means a locked exit. Thanks for watching!
