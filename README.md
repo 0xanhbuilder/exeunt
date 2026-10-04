@@ -16,7 +16,7 @@ The full pitch, with every feature and its flow: [`docs/pitch.md`](docs/pitch.md
 | Website | <https://exeunt.space> |
 | API | <https://api.exeunt.space> |
 | MCP server (Streamable HTTP) | <https://api.exeunt.space/mcp> |
-| GitHub | [link to be added] |
+| GitHub | <https://github.com/0xanhbuilder/exeunt> |
 | Test report | [`docs/test-report.md`](docs/test-report.md) |
 
 The website has four networks: two live testnets, and two hosted forks that replay real freezes. On the forks, the demo wallet and the "Get demo funds" button give anyone a seller, borrower or bidder position in one click.
@@ -96,7 +96,7 @@ The repository holds:
 ### Install
 
 ```sh
-git clone --recursive <repo> && cd exeunt
+git clone --recursive https://github.com/0xanhbuilder/exeunt.git && cd exeunt
 npm install
 npm run abis                                              # export contract ABIs into the SDK (after contract changes)
 npm run build -w @exeunt/sdk -w @exeunt/forkkit -w @exeunt/mcp

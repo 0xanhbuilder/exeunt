@@ -66,7 +66,7 @@ Links:
 | Website | <https://exeunt.space> |
 | API | <https://api.exeunt.space> |
 | MCP server (Streamable HTTP) | <https://api.exeunt.space/mcp> |
-| GitHub | _to be added_ |
+| GitHub | <https://github.com/0xanhbuilder/exeunt> |
 | Test report | [`docs/test-report.md`](test-report.md) |
 
 The website has four networks: two live testnets, and two hosted forks that replay real freezes. On the forks, a demo wallet and a "Get demo funds" button give anyone a seller, borrower or bidder position in one click.
